@@ -29,18 +29,18 @@ if __name__ == '__main__':
     sc2_c = SpeechCommandsV2C(
         root_path=args.dataset_root_path, corruption_level='L2', corruption_type='WHN',
     )
-    noisy, sample_rate = sc2_c[0]
-    print(f'noisy wavform shape: {noisy.shape}, sample rate: {sample_rate}')
+    noisy, label = sc2_c[0]
+    print(f'noisy wavform shape: {noisy.shape}, sample rate: {args.sample_rate}')
 
     torchaudio.save(
         uri=os.path.join('/root', 'output', 'noisy.wav'),
         src=noisy.detach(), 
-        sample_rate=sample_rate,
+        sample_rate=args.sample_rate,
         encoding='PCM_S',
         bits_per_sample=16
     )
 
-    denoiser = pyrnnoise.RNNoise(sample_rate=sample_rate)
+    denoiser = pyrnnoise.RNNoise(sample_rate=args.sample_rate)
     noise_np = noisy * 32768.0
     noise_np = noise_np.clip(-32768.0, 32767.0)
     noise_np = noise_np.numpy()
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     torchaudio.save(
         uri=os.path.join('/root', 'output', 'clean.wav'),
         src=clean_wav.detach(),
-        sample_rate=sample_rate,
+        sample_rate=args.sample_rate,
         encoding='PCM_S',
         bits_per_sample=16
     )
