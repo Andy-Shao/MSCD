@@ -27,7 +27,7 @@ if __name__ == '__main__':
     ############################################################
 
     sc2_c = SpeechCommandsV2C(
-        root_path=args.dataset_root_path, corruption_level='L2', corruption_type='WHN',
+        root_path=args.dataset_root_path, corruption_level='L2', corruption_type='END1',
     )
     noisy, label = sc2_c[0]
     print(f'noisy wavform shape: {noisy.shape}, sample rate: {args.sample_rate}')
