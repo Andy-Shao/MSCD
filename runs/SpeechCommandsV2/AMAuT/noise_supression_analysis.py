@@ -10,9 +10,9 @@ from lib.utils import make_unless_exits, print_argparse, count_ttl_params
 from lib.corruption import corruption_meta
 from lib.spSet import SpeechCommandsV2C
 from lib.dataset import TransferDataset
-from lib.component import Components, RNNoiseTransform, AmplitudeToDB, FrequenceTokenTransformer
+from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer, DNSnoise
 from .utils import build_model, inference, load_weight
-from ..utils import denormalize, normalize
+# from ..utils import denormalize, normalize
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     hop_length=155
     mel_scale='slaney'
     args.target_length=104
-    records = pd.DataFrame(columns=['Dataset',  'Algorithm', 'Param No.', 'Corruption', 'Non-adapted', 'Adapted', 'Improved'])
+    records = pd.DataFrame(columns=['Dataset',  'Algorithm', 'Param No.', 'Corruption', 'Denoiser', 'Raw_accu', 'Denoisy_accu', 'Improved'])
     corruption_metas = corruption_meta(corruption_types=corruption_types, corruption_levels=corruption_levels)
     aut, clsf = build_model(args=args)
     load_weight(args=args, aut=aut, clsf=clsf, mode='origin')
@@ -77,7 +77,8 @@ if __name__ == '__main__':
 
         adpt_set = TransferDataset(
             dataset=cs2_c, data_tf=Components(transforms=[
-                RNNoiseTransform(sample_rate=args.sample_rate, denormalize=denormalize, normalize=normalize),
+                # RNNoiseTransform(sample_rate=args.sample_rate, denormalize=denormalize, normalize=normalize),
+                DNSnoise(),
                 MelSpectrogram(
                     sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
                     n_mels=args.n_mels, mel_scale=mel_scale
@@ -96,5 +97,7 @@ if __name__ == '__main__':
         print('Adaptation evaluation')
         adpt_accu = inference(args=args, aut=aut, clsf=clsf, data_loader=adpt_loader)
         print(f'Original accuracy: {org_accu:.4f}, adaptation accuracy: {adpt_accu:.4f}')
+        records.loc[len(records)] = [args.dataset, args.arch, param_no, f'{cmeta.type}-{cmeta.level}', 'DNS64', org_accu, adpt_accu, adpt_accu-org_accu]
+    records.to_csv(os.path.join(args.output_path, args.output_file_name))
 
     print('END!')

@@ -34,22 +34,36 @@ class Components(nn.Module):
             wavform = transform(wavform)
         return wavform
 
-class RNNoiseTransform(nn.Module):
-    def __init__(self, sample_rate:int, normalize, denormalize):
+# class RNNoiseTransform(nn.Module):
+#     def __init__(self, sample_rate:int, normalize, denormalize):
+#         super().__init__()
+#         self.sample_rate = sample_rate
+#         self.normalize = normalize
+#         self.denormalize = denormalize
+
+#     def forward(self, x:torch.Tensor) -> torch.Tensor:
+#         import pyrnnoise
+
+#         denoiser = pyrnnoise.RNNoise(self.sample_rate)
+#         x = self.denormalize(x)
+#         x = x.numpy().astype(np.int16)
+#         y = [denoise_audio for speech_prob, denoise_audio in denoiser.denoise_chunk(x, partial=True)]
+#         y = torch.tensor(np.concat(y, axis=1))
+#         y = self.normalize(y)
+#         return y
+    
+class DNSnoise(nn.Module):
+    """Meta Denoiser (dns64)"""
+    def __init__(self):
         super().__init__()
-        self.sample_rate = sample_rate
-        self.normalize = normalize
-        self.denormalize = denormalize
+        from denoiser import pretrained
+        self.model = pretrained.dns64(pretrained=True)
+        self.model.eval()
 
     def forward(self, x:torch.Tensor) -> torch.Tensor:
-        import pyrnnoise
-
-        denoiser = pyrnnoise.RNNoise(self.sample_rate)
-        x = self.denormalize(x)
-        x = x.numpy().astype(np.int16)
-        y = [denoise_audio for speech_prob, denoise_audio in denoiser.denoise_chunk(x, partial=True)]
-        y = torch.tensor(np.concat(y, axis=1))
-        y = self.normalize(y)
+        with torch.no_grad():
+            y = self.model(x)
+        y = y.squeeze_(dim=0)
         return y
 
 class ReduceChannel(nn.Module):

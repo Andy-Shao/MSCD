@@ -1,6 +1,5 @@
 import argparse
 import os
-import pyrnnoise
 import numpy as np
 
 import torch
@@ -40,13 +39,19 @@ if __name__ == '__main__':
         bits_per_sample=16
     )
 
-    denoiser = pyrnnoise.RNNoise(sample_rate=args.sample_rate)
-    noise_np = noisy * 32768.0
-    noise_np = noise_np.clip(-32768.0, 32767.0)
-    noise_np = noise_np.numpy()
-    noise_np = noise_np.astype(np.int16)
-    out = [denoise_audio for speech_prob, denoise_audio in denoiser.denoise_chunk(noise_np, partial=True)]
-    clean_wav = torch.tensor(np.concat(out, axis=1)).to(torch.float32)/32768.0
+    # import pyrnnoise
+    # denoiser = pyrnnoise.RNNoise(sample_rate=args.sample_rate)
+    # noise_np = noisy * 32768.0
+    # noise_np = noise_np.clip(-32768.0, 32767.0)
+    # noise_np = noise_np.numpy()
+    # noise_np = noise_np.astype(np.int16)
+    # out = [denoise_audio for speech_prob, denoise_audio in denoiser.denoise_chunk(noise_np, partial=True)]
+    # clean_wav = torch.tensor(np.concat(out, axis=1)).to(torch.float32)/32768.0
+
+    from denoiser import pretrained
+    model = pretrained.dns64(pretrained=True)
+    clean_wav = model(noisy)
+    clean_wav = clean_wav.squeeze_(dim=0)
 
     print(f'clean wavform shape:{clean_wav.shape}')
 
