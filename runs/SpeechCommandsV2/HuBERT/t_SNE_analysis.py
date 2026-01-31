@@ -14,7 +14,8 @@ from lib.corruption import corruption_meta
 from lib.spSet import SpeechCommandsV2, SpeechCommandsV2C
 from lib.dataset import Subset, TransferDataset
 from lib.component import ReduceChannel, Components, AudioPadding, RNNoiseTransform
-from .noise_supression_analysis import build_model, load_weight, normalize, denormalize
+from .utils import build_model, load_weight
+from ..utils import denormalize, normalize
 
 def t_SNE(features: torch.Tensor, labels: torch.Tensor) -> np.ndarray:
     from sklearn.manifold import TSNE
