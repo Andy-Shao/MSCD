@@ -22,11 +22,5 @@ DNS denoiser
 pip install denoiser==0.1.5
 ```
 
-Speechbrain
-```shell
-pip install speechbrain==1.0.3
-```
-
-
 # Code Reference
 + [DHAuDS](https://github.com/Andy-Shao/DHAuDS)
