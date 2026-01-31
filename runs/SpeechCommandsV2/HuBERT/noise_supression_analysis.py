@@ -7,11 +7,12 @@ from torch.utils.data import DataLoader
 
 from lib.utils import make_unless_exits, print_argparse, count_ttl_params
 from lib.corruption import corruption_meta
-from lib.component import ReduceChannel, Components, RNNoiseTransform
+from lib.component import ReduceChannel
 from lib.dataset import TransferDataset
 from lib.spSet import SpeechCommandsV2C
+from noise_suppression.DNS import DNS_cache_set
 from .utils import build_model, inference, load_weight
-from ..utils import normalize, denormalize
+# from ..utils import normalize, denormalize
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -26,6 +27,7 @@ if __name__ == '__main__':
     ap.add_argument('--adpt_wght_path', type=str)
     ap.add_argument('--use_pre_trained_weigth', action='store_true')
     ap.add_argument('--model_level', type=str, default='base', choices=['base', 'large', 'x-large'])
+    ap.add_argument('--cache_path', type=str)
 
     args = ap.parse_args()
     if args.dataset == 'SpeechCommandsV2':
@@ -44,42 +46,52 @@ if __name__ == '__main__':
 
     corruption_types=['WHN', 'ENQ', 'END1', 'END2', 'ENSC', 'PSH', 'TST']
     corruption_levels=['L1', 'L2']
-    records = pd.DataFrame(columns=['Dataset',  'Algorithm', 'Param No.', 'Corruption', 'Non-adapted', 'Adapted', 'Improved'])
+    records = pd.DataFrame(columns=['Dataset',  'Algorithm', 'Param No.', 'Corruption', 'Denoiser', 'Raw_accu', 'Denoisy_accu', 'Improved'])
     corruption_metas = corruption_meta(corruption_types=corruption_types, corruption_levels=corruption_levels)
+    noisy_sets=[]; clean_sets=[]
+    for idx, cmeta in enumerate(corruption_metas):
+        print(f'{idx+1}/{len(corruption_metas)}: {args.dataset} {cmeta.type}-{cmeta.level} set generating...')
+        sc2_c = SpeechCommandsV2C(
+            root_path=args.dataset_root_path, corruption_level=cmeta.level, corruption_type=cmeta.type,
+        )
+        noisy_set = TransferDataset(
+            dataset=sc2_c, data_tf=ReduceChannel()
+        )
+        noisy_sets.append(noisy_set)
+        clean_set = TransferDataset(
+            dataset=DNS_cache_set(
+                dataset=sc2_c, device=args.device, sample_rate=args.sample_rate, 
+                cache_path=os.path.join(args.cache_path, cmeta.type, cmeta.level), 
+            ),
+            data_tf=ReduceChannel()
+        )
+        clean_sets.append(clean_set)
+
     hubert, clsf = build_model(args=args, pre_weight=args.use_pre_trained_weigth)
     load_weight(args=args, hubert=hubert, clsf=clsf, mode='origin')
     param_no = count_ttl_params(hubert) + count_ttl_params(clsf)
 
     for idx, cmeta in enumerate(corruption_metas):
         print(f'{idx+1}/{len(corruption_metas)}: {args.dataset} {cmeta.type}-{cmeta.level} analyzing...')
-        sc2_c = SpeechCommandsV2C(
-            root_path=args.dataset_root_path, corruption_level=cmeta.level, corruption_type=cmeta.type,
-        )
+        
+        noisy_set = noisy_sets[idx]
+        clean_set = clean_sets[idx]
 
-        org_set = TransferDataset(
-            dataset=sc2_c, data_tf=ReduceChannel()
-        )
-        adpt_set = TransferDataset(
-            dataset=sc2_c,
-            data_tf=Components(transforms=[
-                RNNoiseTransform(sample_rate=args.sample_rate, normalize=normalize, denormalize=denormalize),
-                ReduceChannel()
-            ])
-        )
-
-        org_loader = DataLoader(
-            dataset=org_set, batch_size=args.batch_size, shuffle=False, drop_last=False, pin_memory=True,
+        noisy_loader = DataLoader(
+            dataset=noisy_set, batch_size=args.batch_size, shuffle=False, drop_last=False, pin_memory=True,
             num_workers=args.num_workers
         )
-        adpt_loader = DataLoader(
-            dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, pin_memory=True,
+        clean_loader = DataLoader(
+            dataset=clean_set, batch_size=args.batch_size, shuffle=False, drop_last=False, pin_memory=True,
             num_workers=args.num_workers
         )
 
-        print('Origin evaluation')
-        org_accu = inference(args=args, hubert=hubert, clsModel=clsf, data_loader=org_loader)
-        print('Adaptation evaluation')
-        adpt_accu = inference(args=args, hubert=hubert, clsModel=clsf, data_loader=adpt_loader)
-        print(f'Accuracy comparision: origin is: {org_accu:.4f}, adaptation is: {adpt_accu:.4f}')
+        print('Noisy set evaluation')
+        noisy_accu = inference(args=args, hubert=hubert, clsModel=clsf, data_loader=noisy_loader)
+        print('Clean set evaluation')
+        clean_accu = inference(args=args, hubert=hubert, clsModel=clsf, data_loader=clean_loader)
+        print(f'Accuracy comparision: noisy set is: {noisy_accu:.4f}, clean set is: {clean_accu:.4f}')
+        records.loc[len(records)] = [args.dataset, args.arch, param_no, f'{cmeta.type}-{cmeta.level}', 'DNS64', noisy_accu, clean_accu, clean_accu-noisy_accu]
+    records.to_csv(os.path.join(args.output_path, args.output_file_name))
 
     print('END!')

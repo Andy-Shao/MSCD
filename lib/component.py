@@ -4,6 +4,13 @@ import random
 import torch
 from torch import nn
 
+class DoNothing(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x:torch.Tensor) -> torch.Tensor:
+        return x
+
 class AudioPadding(nn.Module):
     def __init__(self, max_length:int, sample_rate:int, random_shift:bool=False):
         super(AudioPadding, self).__init__()
@@ -51,20 +58,6 @@ class Components(nn.Module):
 #         y = torch.tensor(np.concat(y, axis=1))
 #         y = self.normalize(y)
 #         return y
-    
-class DNSnoise(nn.Module):
-    """Meta Denoiser (dns64)"""
-    def __init__(self):
-        super().__init__()
-        from denoiser import pretrained
-        self.model = pretrained.dns64(pretrained=True)
-        self.model.eval()
-
-    def forward(self, x:torch.Tensor) -> torch.Tensor:
-        with torch.no_grad():
-            y = self.model(x)
-        y = y.squeeze_(dim=0)
-        return y
 
 class ReduceChannel(nn.Module):
     def __init__(self):

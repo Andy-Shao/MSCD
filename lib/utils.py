@@ -1,7 +1,37 @@
 import os
 import argparse
 
+import torch
 from torch import nn
+
+def hex_to_one_hot(hex_str:str, length:int) -> torch.Tensor:
+    # Step 1: Hex to decimal
+    decimal_val = int(hex_str, 16)
+    
+    # Step 2: Decimal to binary string
+    binary_str = bin(decimal_val)[2:]
+    
+    # Step 3: Pad with zeros on the left
+    binary_str = binary_str.zfill(length)
+    
+    # Step 4: Convert to list of ints
+    one_hot = [float(bit) for bit in binary_str]
+    
+    one_hot = torch.tensor(one_hot)
+    return one_hot
+
+def one_hot_to_hex(one_hot:torch.Tensor) -> str:
+    one_hot = one_hot.to(dtype=torch.int64).detach().numpy()
+    # Convert to binary string
+    binary_str = ''.join(str(bit) for bit in one_hot)
+    
+    # Convert binary string to decimal
+    decimal_val = int(binary_str, 2)
+    
+    # Convert decimal to hexadecimal
+    hex_val = hex(decimal_val)
+    
+    return hex_val
 
 def make_unless_exits(url:str) -> None:
     if not os.path.exists(url):

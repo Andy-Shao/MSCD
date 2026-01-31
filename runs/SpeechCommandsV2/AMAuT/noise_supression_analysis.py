@@ -10,7 +10,8 @@ from lib.utils import make_unless_exits, print_argparse, count_ttl_params
 from lib.corruption import corruption_meta
 from lib.spSet import SpeechCommandsV2C
 from lib.dataset import TransferDataset
-from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer, DNSnoise
+from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
+from noise_suppression.DNS import DNSnoise
 from .utils import build_model, inference, load_weight
 # from ..utils import denormalize, normalize
 
