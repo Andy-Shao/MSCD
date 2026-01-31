@@ -48,19 +48,10 @@ if __name__ == '__main__':
     # out = [denoise_audio for speech_prob, denoise_audio in denoiser.denoise_chunk(noise_np, partial=True)]
     # clean_wav = torch.tensor(np.concat(out, axis=1)).to(torch.float32)/32768.0
 
-    # from denoiser import pretrained
-    # model = pretrained.dns64(pretrained=True)
-    # clean_wav = model(noisy)
-    # clean_wav = clean_wav.squeeze_(dim=0)
-
-    from speechbrain.inference.separation import SepformerSeparation
-    model = SepformerSeparation.from_hparams(
-        source="speechbrain/sepformer-whamr-enhancement",
-        savedir="pretrained_models/sepformer-whamr",
-        token=True
-    )
-    model = model.to('cuda')
-    clean_wav = model.separate_batch(noisy)
+    from denoiser import pretrained
+    model = pretrained.dns64(pretrained=True)
+    clean_wav = model(noisy)
+    clean_wav = clean_wav.squeeze_(dim=0)
 
     print(f'clean wavform shape:{clean_wav.shape}')
 
