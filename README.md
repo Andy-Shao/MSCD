@@ -1,7 +1,7 @@
 # PANS
 ## Software Environment
 + Docker image: nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
-+ GPU: RTX 5090 / RTX PRO 6000 WS
++ GPU: RTX 5090 / RTX PRO 6000 Blackwell Workstation
 ```shell
 conda create --name PANS python==3.13.9 -y
 conda activate PANS
