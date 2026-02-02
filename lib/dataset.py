@@ -137,3 +137,16 @@ class TransferDataset(Dataset):
             return feature.cpu(), label.cpu() if isinstance(label, torch.Tensor) else label
         else:
             return feature, label
+        
+class IdxSet(Dataset):
+    def __init__(self, dataset:Dataset):
+        super().__init__()
+        self.dataset = dataset
+
+    def __len__(self):
+        return len(self.dataset)
+    
+    def __getitem__(self, index):
+        data = self.dataset[index]
+        ret = [index] + list(data)
+        return tuple(ret)

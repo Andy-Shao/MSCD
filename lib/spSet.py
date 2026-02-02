@@ -44,12 +44,16 @@ class SpeechCommandsV2(Dataset):
 
 class SpeechCommandsV2C(Dataset):
     meta_file = 'testing_list.txt'
-    def __init__(self, root_path:str, corruption_level:str, corruption_type:str, data_tf:nn.Module=None, label_tf:nn.Module=None):
+    def __init__(self, root_path:str, corruption_level:str, corruption_type:str|list[str], data_tf:nn.Module|list[nn.Module]=None, label_tf:nn.Module=None):
         super().__init__()
         self.root_path = root_path
-        self.corruption_type = corruption_type
+        if isinstance(corruption_type, str):
+            self.corruption_types = [corruption_type]
+        else: self.corruption_types = corruption_type
         self.corruption_level = corruption_level
-        self.data_tf = data_tf
+        if isinstance(data_tf, nn.Module):
+            self.data_tfs = [data_tf]
+        else: self.data_tfs = data_tf
         self.label_tf = label_tf
         self.data_ls = self.__cal_data_list__()
 
@@ -64,12 +68,21 @@ class SpeechCommandsV2C(Dataset):
     def __getitem__(self, index):
         meta_info = self.data_ls[index]
         label = int(SpeechCommandsV2.label_dict[meta_info.split('/')[0]])
-        wavform, sample_rate = torchaudio.load(
-            os.path.join(self.root_path, self.corruption_type, self.corruption_level, meta_info), 
-            normalize=True
-        )
-        if self.data_tf is not None:
-            wavform = self.data_tf(wavform)
+        ret = []
+        for corruption_type in self.corruption_types:
+            wavform, sample_rate = torchaudio.load(
+                os.path.join(self.root_path, corruption_type, self.corruption_level, meta_info), 
+                normalize=True
+            )
+            ret.append(wavform)
+        if self.data_tfs is not None:
+            tmp=[]
+            for idx, wavform in enumerate(ret):
+                data_tf = self.data_tfs[idx]
+                wavform = data_tf(wavform)
+                tmp.append(wavform)
+            ret = tmp
         if self.label_tf is not None:
             label = self.label_tf(label)
-        return wavform, label
+        ret.append(label)
+        return tuple(ret)
