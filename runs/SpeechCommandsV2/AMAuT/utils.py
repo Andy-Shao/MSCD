@@ -11,10 +11,15 @@ from lib.corruption import CorruptionMeta
 from AuT.lib.config import AuT_base
 from AuT.lib.model import FCETransform, AudioClassifier
 
-def inference(args:argparse.Namespace, aut:FCETransform, clsf:AudioClassifier, data_loader:DataLoader):
+def inference(
+    args:argparse.Namespace, aut:FCETransform, clsf:AudioClassifier, data_loader:DataLoader,
+    tqdmable:bool=True
+):
     aut.eval(); clsf.eval()
     ttl_corr, ttl_size = 0., 0.
-    for features, labels in tqdm(data_loader):
+    if tqdmable: iterator = tqdm(data_loader)
+    else: iterator = data_loader
+    for features, labels in iterator:
         features, labels = features.to(args.device), labels.to(args.device)
 
         with torch.inference_mode():
