@@ -1,6 +1,6 @@
 import argparse
 import os
-# import wandb
+import wandb
 import numpy as np
 import random
 from tqdm import tqdm
@@ -19,6 +19,28 @@ from lib.spSet import SpeechCommandsV2C
 from lib.corruption import CorruptionMeta
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from ..utils import build_model, load_weight, inference
+
+def teacher_accu_analyzing(
+        args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
+        data_tf:nn.Module
+    ):
+    print('Teacher accuracy analyzing...')
+    for aut in auts: aut.eval()
+    for clsf in clsfs: clsf.eval()
+    accu_dic = {}
+    for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
+        sc2_c = SpeechCommandsV2C(
+            root_path=args.dataset_root_path, corruption_level=args.corruption_level, 
+            corruption_type=corruption_type, data_tf=data_tf
+        )
+        sc2_c_loader = DataLoader(
+            dataset=sc2_c, batch_size=args.batch_size, shuffle=False, drop_last=False, 
+            num_workers=args.num_workers
+        )
+        accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=sc2_c_loader, tqdmable=False)
+        wandb.log(data={f'Accuracy/{corruption_type}-{args.corruption_level}': accu})
+        accu_dic[f'{corruption_type}-{args.corruption_level}']=round(accu, ndigits=4)
+    print(accu_dic)
 
 def collect_worst_item(
         args:argparse.Namespace, corruption_types:list[str], idx_cache:dict, pred_cache:dict,
@@ -42,9 +64,10 @@ def collect_worst_item(
             worst_item['idxs'].append(idx)
             worst_item['labels'].append(label)
 
-    print('Worst list presentation:')
+    # print('Worst list presentation:')
     for corruption_type in corruption_types:
-        print(f'type: {corruption_type}, size: {len(worst_list[corruption_type]['idxs'])}')
+        # print(f'type: {corruption_type}, size: {len(worst_list[corruption_type]['idxs'])}')
+        wandb.log(data={f'WorstList/{corruption_type}':len(worst_list[corruption_type]['idxs'])})
     return worst_list
 
 class WorstItemSearch:
@@ -128,6 +151,7 @@ def pseudo_labeling(
             pred_cache.append(final_preds)
             idx_cache.append(idxs)
     print(f'Teacher election pseudo-labeling accuracy is: {ttl_corr/ttl_size:.4f}')
+    wandb.log(data={'Accuracy/pseudo-labeling': ttl_corr/ttl_size})
 
     # Merging output cache
     tmp = {}
@@ -136,9 +160,6 @@ def pseudo_labeling(
     output_cache = tmp
     pred_cache = torch.concat(pred_cache, dim=0)
     idx_cache = torch.concat(idx_cache, dim=0)
-    print(f'output_cache shape is: {output_cache['WHN'].shape}')
-    print(f'pred_cache shape is: {pred_cache.shape}')
-    print(f'idx_cache shape is: {idx_cache.shape}')
     return output_cache, pred_cache, idx_cache
 
 if __name__ == '__main__':
@@ -153,6 +174,8 @@ if __name__ == '__main__':
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
     ap.add_argument('--elect_weights', type=str)
     ap.add_argument('--num_of_shft', type=int, default=3)
+    ap.add_argument('--max_epoch', type=int, default=20)
+    ap.add_argument('--lr', type=float, default=1e-3)
 
     ap.add_argument('--wandb', action='store_true')
     ap.add_argument('--seed', type=int, default=2026, help='random seed')
@@ -177,11 +200,11 @@ if __name__ == '__main__':
 
     print_argparse(args)
     ##########################################
-    # wandb_run = wandb.init(
-    #     project=f'{constants.PROJECT_TITLE}-{constants.TEACHER_ADAPTATION}', 
-    #     name=f'{constants.architecture_dic[args.arch]}-{constants.dataset_dic[args.dataset]}', mode='online' if args.wandb else 'disabled', 
-    #     config=args, tags=['Audio Classification', 'Teacher Adaptation', args.dataset]
-    # )
+    wandb_run = wandb.init(
+        project=f'{constants.PROJECT_TITLE}-{constants.TEACHER_ADAPTATION}', 
+        name=f'{constants.architecture_dic[args.arch]}-{constants.dataset_dic[args.dataset]}', mode='online' if args.wandb else 'disabled', 
+        config=args, tags=['Audio Classification', 'Teacher Adaptation', args.dataset]
+    )
 
     corruption_types=['WHN', 'ENQ', 'END1', 'END2', 'ENSC', 'PSH', 'TST']
     args.n_mels=80
@@ -200,7 +223,7 @@ if __name__ == '__main__':
         auts.append(aut)
         clsfs.append(clsf)
 
-    print("Preparing datasets")
+    print("Preparing datasets...")
     data_tfs = [Components(transforms=[
         MelSpectrogram(
             sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
@@ -219,12 +242,36 @@ if __name__ == '__main__':
         num_workers=args.num_workers
     )
 
-    output_cache, pred_cache, idx_cache = pseudo_labeling(
-        args=args, auts=auts, clsfs=clsfs, data_loader=sc2_c_loader, corruption_types=corruption_types,
-    )
+    for epoch in range(args.max_epoch):
+        print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
+        teacher_accu_analyzing(
+            args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types, 
+            data_tf=Components(transforms=[
+                MelSpectrogram(
+                    sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
+                    n_mels=args.n_mels, mel_scale=mel_scale
+                ),
+                AmplitudeToDB(top_db=80., max_out=2.),
+                FrequenceTokenTransformer()
+            ])
+        )
+        output_cache, pred_cache, idx_cache = pseudo_labeling(
+            args=args, auts=auts, clsfs=clsfs, data_loader=sc2_c_loader, corruption_types=corruption_types,
+        )
 
-    worst_list = collect_worst_item(
-        args=args, corruption_types=corruption_types, idx_cache=idx_cache, 
-        pred_cache=pred_cache, output_cache=output_cache
+        worst_list = collect_worst_item(
+            args=args, corruption_types=corruption_types, idx_cache=idx_cache, 
+            pred_cache=pred_cache, output_cache=output_cache
+        )
+    teacher_accu_analyzing(
+        args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types,
+        data_tf=Components(transforms=[
+            MelSpectrogram(
+                sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
+                n_mels=args.n_mels, mel_scale=mel_scale
+            ),
+            AmplitudeToDB(top_db=80., max_out=2.),
+            FrequenceTokenTransformer()
+        ])
     )
     print('END!')
