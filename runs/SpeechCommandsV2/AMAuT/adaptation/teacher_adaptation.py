@@ -10,6 +10,7 @@ from lib import constants
 from lib.utils import make_unless_exits, print_argparse, indexes2oneHot
 
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
 from torchaudio.transforms import MelSpectrogram
 
@@ -19,7 +20,34 @@ from lib.corruption import CorruptionMeta
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from ..utils import build_model, load_weight, inference
 
-class WorstListSearch:
+def collect_worst_item(
+        args:argparse.Namespace, corruption_types:list[str], idx_cache:dict, pred_cache:dict,
+        output_cache:dict
+    ) -> dict:
+    """return dict: key -> corruption type, value -> [idxs, labels]"""
+    print('Scanning and finding the most worst K teachers...')
+    K = args.num_of_shft
+    assert K < len(corruption_types)
+    worst_list = {} # key -> corruption type, value -> [idxs, labels]
+    for corruption_type in corruption_types:
+        tmp = {}
+        tmp['idxs'] = []
+        tmp['labels'] = []
+        worst_list[corruption_type] = tmp
+    for idx, label, targets in tqdm(WorstItemSearch(
+        idxs=idx_cache, preds=pred_cache, outputs=output_cache, K=K, corruption_types=corruption_types
+    )):
+        for target in targets:
+            worst_item = worst_list[target]
+            worst_item['idxs'].append(idx)
+            worst_item['labels'].append(label)
+
+    print('Worst list presentation:')
+    for corruption_type in corruption_types:
+        print(f'type: {corruption_type}, size: {len(worst_list[corruption_type]['idxs'])}')
+    return worst_list
+
+class WorstItemSearch:
     def __init__(
         self, idxs:torch.Tensor, preds:torch.Tensor, outputs:torch.Tensor, K:int,
         corruption_types:list[str]
@@ -50,17 +78,68 @@ class WorstListSearch:
 
         fail_check = (torch.max(tmp, dim=1)[1] != torch.tensor(([pred]*tmp.shape[0])))
         num_fail = fail_check.sum().item()
+        idx = self.idxs[self.i].item()
         self.i += 1
         if num_fail == 0:
             return self.__next__()
-        elif num_fail <= K:
+        elif num_fail <= self.K:
             fail_idx = torch.where(fail_check)[0]
             targets = [corruption_types[k] for k in fail_idx]
         else:
             tmp[~fail_check] = 0.
             _, indices = torch.sort(tmp[:, pred].clone(), descending=False)
-            targets = [corruption_types[k] for k in indices[len(indices)-num_fail:len(indices)-(num_fail-K)]]
-        return self.idxs[i].item(), label, targets
+            targets = [corruption_types[k] for k in indices[len(indices)-num_fail:len(indices)-(num_fail-self.K)]]
+        return idx, label, targets
+
+def pseudo_labeling(
+        args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], data_loader:DataLoader,
+        corruption_types:list[str]
+    ):
+    print("Pseudo-labeling...")
+    for aut in auts: aut.eval()
+    for clsf in clsfs: clsf.eval()
+    ttl_corr, ttl_size = 0., 0.
+    output_cache = {}
+    for j, data in tqdm(enumerate(data_loader), total=len(data_loader)):
+        labels = data[-1]
+        idxs = data[0]
+        for i in range(1, len(data)-1):
+            features = data[i].to(args.device)
+            aut = auts[i-1]
+            clsf = clsfs[i-1]
+            corruption_type = corruption_types[i-1]
+            with torch.inference_mode():
+                outputs, _ = clsf(aut(features)[0])
+                outputs = outputs.detach().cpu()
+            _, preds = torch.max(outputs, dim=1)
+            preds = indexes2oneHot(labels=preds, class_num=args.class_num)
+            preds = preds * args.elect_weights[corruption_type]
+            if i == 1: final_preds = preds
+            else: final_preds = final_preds + preds
+            if j == 0: output_cache[corruption_type] = [outputs]
+            else: output_cache[corruption_type].append(outputs)
+        _, final_preds = torch.max(final_preds, dim=1)
+        ttl_corr += (final_preds==labels).sum().item()
+        ttl_size += labels.shape[0]
+        if j == 0: 
+            pred_cache = [final_preds]
+            idx_cache = [idxs]
+        else: 
+            pred_cache.append(final_preds)
+            idx_cache.append(idxs)
+    print(f'Teacher election pseudo-labeling accuracy is: {ttl_corr/ttl_size:.4f}')
+
+    # Merging output cache
+    tmp = {}
+    for key, value in output_cache.items():
+        tmp[key] = torch.concat(value, dim=0)
+    output_cache = tmp
+    pred_cache = torch.concat(pred_cache, dim=0)
+    idx_cache = torch.concat(idx_cache, dim=0)
+    print(f'output_cache shape is: {output_cache['WHN'].shape}')
+    print(f'pred_cache shape is: {pred_cache.shape}')
+    print(f'idx_cache shape is: {idx_cache.shape}')
+    return output_cache, pred_cache, idx_cache
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -113,8 +192,6 @@ if __name__ == '__main__':
     args.target_length=104
 
     print("Initialization...")
-    elect_weights = args.elect_weights
-    # elect_weights={}
     auts, clsfs = [], []
     for corruption_type in tqdm(corruption_types):
         cmeta = CorruptionMeta(type=corruption_type, level=args.corruption_level)
@@ -122,29 +199,6 @@ if __name__ == '__main__':
         load_weight(args=args, aut=aut, clsf=clsf, mode='adaptation', metaInfo=cmeta)
         auts.append(aut)
         clsfs.append(clsf)
-
-    # print("Calculating election weights")
-    # for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
-    #     aut, clsf = auts[idx], clsfs[idx]
-    #     aut.eval(); clsf.eval()
-    #     sc2_c = SpeechCommandsV2C(
-    #         root_path=args.dataset_root_path, corruption_type=corruption_type, corruption_level=args.corruption_level,
-    #         data_tf=Components(transforms=[
-    #             MelSpectrogram(
-    #                 sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
-    #                 n_mels=args.n_mels, mel_scale=mel_scale
-    #             ),
-    #             AmplitudeToDB(top_db=80., max_out=2.),
-    #             FrequenceTokenTransformer()
-    #         ])
-    #     )
-    #     sc2_c_loader = DataLoader(
-    #         dataset=sc2_c, batch_size=args.batch_size, shuffle=False, drop_last=False,
-    #         num_workers=args.num_workers
-    #     )
-    #     cmeta = CorruptionMeta(type=corruption_type, level=args.corruption_level)
-    #     accu = inference(args=args, aut=aut, clsf=clsf, data_loader=sc2_c_loader, tqdmable=False)
-    #     elect_weights[corruption_type] = round(accu, ndigits=4)
 
     print("Preparing datasets")
     data_tfs = [Components(transforms=[
@@ -165,65 +219,12 @@ if __name__ == '__main__':
         num_workers=args.num_workers
     )
 
-    print("Pseudo-labeling...")
-    for aut in auts: aut.eval()
-    for clsf in clsfs: clsf.eval()
-    ttl_corr, ttl_size = 0., 0.
-    output_cache = {}
-    for j, data in tqdm(enumerate(sc2_c_loader), total=len(sc2_c_loader)):
-        labels = data[-1]
-        idxs = data[0]
-        for i in range(1, len(data)-1):
-            features = data[i].to(args.device)
-            aut = auts[i-1]
-            clsf = clsfs[i-1]
-            corruption_type = corruption_types[i-1]
-            with torch.inference_mode():
-                outputs, _ = clsf(aut(features)[0])
-                outputs = outputs.detach().cpu()
-            _, preds = torch.max(outputs, dim=1)
-            preds = indexes2oneHot(labels=preds, class_num=args.class_num)
-            preds = preds * elect_weights[corruption_type]
-            if i == 1: final_preds = preds
-            else: final_preds = final_preds + preds
-            if j == 0: output_cache[corruption_type] = [outputs]
-            else: output_cache[corruption_type].append(outputs)
-        _, final_preds = torch.max(final_preds, dim=1)
-        ttl_corr += (final_preds==labels).sum().item()
-        ttl_size += labels.shape[0]
-        if j == 0: 
-            pred_cache = [final_preds]
-            idx_cache = [idxs]
-        else: 
-            pred_cache.append(final_preds)
-            idx_cache.append(idxs)
-    print(f'Teacher election pseudo-labeling accuracy is: {ttl_corr/ttl_size:.4f}')
+    output_cache, pred_cache, idx_cache = pseudo_labeling(
+        args=args, auts=auts, clsfs=clsfs, data_loader=sc2_c_loader, corruption_types=corruption_types,
+    )
 
-    # Merging output cache
-    tmp = {}
-    for key, value in output_cache.items():
-        tmp[key] = torch.concat(value, dim=0)
-    output_cache = tmp
-    pred_cache = torch.concat(pred_cache, dim=0)
-    idx_cache = torch.concat(idx_cache, dim=0)
-    print(f'output_cache shape is: {output_cache['WHN'].shape}')
-    print(f'pred_cache shape is: {pred_cache.shape}')
-    print(f'idx_cache shape is: {idx_cache.shape}')
-
-    print('Scanning and finding the most worst K teachers')
-    K = args.num_of_shft
-    assert K < len(corruption_types)
-    worst_list = {} # key -> corruption type, value -> [idxs, labels]
-    for corruption_type in corruption_types:
-        tmp = {}
-        tmp['idxs'] = []
-        tmp['labels'] = []
-        worst_list[corruption_type] = tmp
-    for it in tqdm(WorstListSearch(
-        idxs=idx_cache, preds=pred_cache, outputs=output_cache, K=K, corruption_types=corruption_types
-    )):
-        # print(it)
-        # exit()
-        pass
-
+    worst_list = collect_worst_item(
+        args=args, corruption_types=corruption_types, idx_cache=idx_cache, 
+        pred_cache=pred_cache, output_cache=output_cache
+    )
     print('END!')
