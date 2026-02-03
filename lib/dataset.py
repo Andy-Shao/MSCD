@@ -146,3 +146,22 @@ class IdxSet(Dataset):
         data = self.dataset[index]
         ret = [index] + list(data)
         return tuple(ret)
+    
+class PseudoLabelSet(Dataset):
+    def __init__(self, dataset:Dataset, pseudo_labels:dict[int, torch.Tensor], label_position:int=1):
+        super().__init__()
+        self.dataset = dataset
+        self.pseudo_labels = pseudo_labels
+        self.label_position = label_position
+
+    def __len__(self):
+        return len(self.dataset)
+    
+    def __getitem__(self, index):
+        import copy
+        data = self.dataset[index]
+        data = list(data)
+        pseudo_label = self.pseudo_labels[index]
+        pseudo_label = copy.deepcopy(pseudo_label)
+        data[self.label_position] = pseudo_label
+        return tuple(data)

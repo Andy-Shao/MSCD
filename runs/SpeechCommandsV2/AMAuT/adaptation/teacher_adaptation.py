@@ -14,10 +14,11 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torchaudio.transforms import MelSpectrogram
 
-from lib.dataset import IdxSet, Subset
+from lib.dataset import IdxSet, Subset, PseudoLabelSet
 from lib.spSet import SpeechCommandsV2C
 from lib.corruption import CorruptionMeta
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
+from lib.optimizer import build_optimizer, lr_scheduler
 from ..utils import build_model, load_weight, inference
 
 def teacher_accu_analyzing(
@@ -38,7 +39,7 @@ def teacher_accu_analyzing(
             num_workers=args.num_workers
         )
         accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=sc2_c_loader, tqdmable=False)
-        logger.log(data={f'Evaluation/{corruption_type}-{args.corruption_level} accuracy': accu}, step=step)
+        logger.log(data={f'Accuracy/{corruption_type}-{args.corruption_level}': accu}, step=step)
         accu_dic[f'{corruption_type}-{args.corruption_level}']=round(accu, ndigits=4)
     print(accu_dic)
 
@@ -147,7 +148,7 @@ def pseudo_labeling(
             pred_cache.append(final_preds)
             idx_cache.append(idxs)
     print(f'Teacher election pseudo-labeling accuracy is: {ttl_corr/ttl_size:.4f}')
-    logger.log(data={'Evaluation/pseudo-labeling accuracy': ttl_corr/ttl_size}, step=step)
+    logger.log(data={'Accuracy/pseudo-labeling': ttl_corr/ttl_size}, step=step)
 
     # Merging output cache
     tmp = {}
@@ -171,7 +172,15 @@ if __name__ == '__main__':
     ap.add_argument('--elect_weights', type=str)
     ap.add_argument('--num_of_shft', type=int, default=3)
     ap.add_argument('--max_epoch', type=int, default=20)
+
     ap.add_argument('--lr', type=float, default=1e-3)
+    ap.add_argument('--lr_cardinality', type=int, default=40)
+    ap.add_argument('--lr_gamma', type=int, default=10)
+    ap.add_argument('--lr_threshold', type=int, default=1)
+    ap.add_argument('--lr_momentum', type=float, default=.9)
+    ap.add_argument('--aut_lr_decay', type=float, default=1.0)
+    ap.add_argument('--clsf_lr_decay', type=float, default=1.0)
+    ap.add_argument('--interval', type=int, default=1, help='interval number')
 
     ap.add_argument('--wandb', action='store_true')
     ap.add_argument('--seed', type=int, default=2026, help='random seed')
@@ -213,6 +222,7 @@ if __name__ == '__main__':
     print("Initialization...")
     auts, clsfs = [], []
     max_accus = {}
+    optimizers = []
     for corruption_type in tqdm(corruption_types):
         cmeta = CorruptionMeta(type=corruption_type, level=args.corruption_level)
         aut, clsf = build_model(args=args)
@@ -220,6 +230,8 @@ if __name__ == '__main__':
         auts.append(aut)
         clsfs.append(clsf)
         max_accus[corruption_type] = 0.
+        optimizer = build_optimizer(lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay)
+        optimizers.append(optimizer)
 
     print("Preparing datasets...")
     data_tfs = [Components(transforms=[
@@ -265,7 +277,9 @@ if __name__ == '__main__':
         )
         if epoch == args.max_epoch: break
         print('Adapting...')
-        for idx, corruption_type in enumerate(corruption_types):
+        for aut in auts: aut.train()
+        for clsf in clsfs: clsf.train()
+        for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
             adpt_set = SpeechCommandsV2C(
                 root_path=args.dataset_root_path, corruption_level=args.corruption_level, 
                 corruption_type=corruption_type, data_tf=Components(transforms=[
@@ -277,9 +291,35 @@ if __name__ == '__main__':
                     FrequenceTokenTransformer()
                 ])
             )
-            adpt_set = IdxSet(dataset=adpt_set)
+            adpt_set = PseudoLabelSet(dataset=adpt_set, label_position=1, pseudo_labels=worst_list[corruption_type])
             adpt_set = Subset(dataset=adpt_set, label_list=list(worst_list[corruption_type].keys()))
-            print(f'{corruption_type} adpt_set size is: {len(adpt_set)}')
-            
+
+            adpt_loader = DataLoader(
+                dataset=adpt_set, batch_size=args.batch_size, shuffle=True, drop_last=False, 
+                num_workers=args.num_workers
+            )
+            aut, clsf = auts[idx], clsfs[idx]
+            optimizer = optimizers[idx]
+
+            for features, labels in adpt_loader:
+                features, labels = features.to(args.device), labels.to(args.device)    
+
+                outputs, _ = clsf(aut(features)[0])
+                # logsoft_nll
+                outputs = nn.functional.log_softmax(outputs, dim=1)
+                _, preds = torch.max(labels, dim=1)
+                clsf_loss = nn.NLLLoss(reduce='mean')(outputs, preds)
+
+                optimizer.zero_grad()
+                clsf_loss.backward()
+                optimizer.step()
+
+            learning_rate = optimizer.param_groups[0]['lr']
+            if epoch % args.interval == 0:
+                lr_scheduler(
+                    optimizer=optimizer, epoch=epoch, lr_cardinality=args.lr_cardinality,
+                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+                )
+
     wandb_run.finish()
     print('END!')
