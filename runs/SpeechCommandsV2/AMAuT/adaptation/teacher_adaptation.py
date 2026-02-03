@@ -27,6 +27,7 @@ class WorstListSearch:
         self.idxs = idxs
         self.preds = preds
         self.outputs = outputs
+        assert K > 0, Exception('Unsupport')
         self.K = K
         self.corruption_types = corruption_types
         self.i = 0
@@ -35,7 +36,7 @@ class WorstListSearch:
         return self
     
     def __next__(self):
-        if self.i > self.idxs.shape[0]:
+        if self.i >= self.idxs.shape[0]:
             raise StopIteration
         pred = self.preds[self.i].item()
         tmp = []
@@ -44,26 +45,22 @@ class WorstListSearch:
             opt = torch.unsqueeze_copy(opt, 0)
             tmp.append(opt)
         tmp = torch.concatenate(tmp, dim=0)
-        _, preds = torch.max(tmp, dim=1)
-        _, indices = torch.sort(tmp[:, pred].clone())
+        _, indices = torch.sort(tmp[:, pred].clone(), descending=False)
         label = tmp[indices[-1], :]
 
-        fail_check = (preds != torch.tensor(([pred]*tmp.shape[0])))
+        fail_check = (torch.max(tmp, dim=1)[1] != torch.tensor(([pred]*tmp.shape[0])))
         num_fail = fail_check.sum().item()
+        self.i += 1
         if num_fail == 0:
-            self.i += 1
             return self.__next__()
         elif num_fail <= K:
-            fail_idx = torch.where(fail_check)
+            fail_idx = torch.where(fail_check)[0]
             targets = [corruption_types[k] for k in fail_idx]
-            return self.idxs[i].item(), label, targets
         else:
-            fail_tmp = tmp[fail_check]
-            print('fail_idx > K')
-        exit()
-
-        self.i += 1
-        return self.idxs[i].item(), label
+            tmp[~fail_check] = 0.
+            _, indices = torch.sort(tmp[:, pred].clone(), descending=False)
+            targets = [corruption_types[k] for k in indices[len(indices)-num_fail:len(indices)-(num_fail-K)]]
+        return self.idxs[i].item(), label, targets
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -222,10 +219,11 @@ if __name__ == '__main__':
         tmp['idxs'] = []
         tmp['labels'] = []
         worst_list[corruption_type] = tmp
-    for it in WorstListSearch(
+    for it in tqdm(WorstListSearch(
         idxs=idx_cache, preds=pred_cache, outputs=output_cache, K=K, corruption_types=corruption_types
-    ):
-        print(it)
-        exit()
+    )):
+        # print(it)
+        # exit()
+        pass
 
     print('END!')
