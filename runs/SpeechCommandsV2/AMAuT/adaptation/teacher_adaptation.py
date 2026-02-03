@@ -14,7 +14,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torchaudio.transforms import MelSpectrogram
 
-from lib.dataset import IdxSet
+from lib.dataset import IdxSet, Subset
 from lib.spSet import SpeechCommandsV2C
 from lib.corruption import CorruptionMeta
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
@@ -52,22 +52,18 @@ def collect_worst_item(
     assert K < len(corruption_types)
     worst_list = {} # key -> corruption type, value -> [idxs, labels]
     for corruption_type in corruption_types:
-        tmp = {}
-        tmp['idxs'] = []
-        tmp['labels'] = []
-        worst_list[corruption_type] = tmp
+        worst_list[corruption_type] = {}
     for idx, label, targets in tqdm(WorstItemSearch(
         idxs=idx_cache, preds=pred_cache, outputs=output_cache, K=K, corruption_types=corruption_types
     )):
         for target in targets:
             worst_item = worst_list[target]
-            worst_item['idxs'].append(idx)
-            worst_item['labels'].append(label)
+            worst_item[idx] = label
 
     # print('Worst list presentation:')
     for corruption_type in corruption_types:
-        # print(f'type: {corruption_type}, size: {len(worst_list[corruption_type]['idxs'])}')
-        logger.log(data={f'WorstList/{corruption_type}':len(worst_list[corruption_type]['idxs'])}, step=step)
+        print(f'type: {corruption_type}, size: {len(worst_list[corruption_type].keys())}')
+        logger.log(data={f'WorstList/{corruption_type}':len(worst_list[corruption_type].keys())}, step=step)
     return worst_list
 
 class WorstItemSearch:
@@ -216,12 +212,14 @@ if __name__ == '__main__':
 
     print("Initialization...")
     auts, clsfs = [], []
+    max_accus = {}
     for corruption_type in tqdm(corruption_types):
         cmeta = CorruptionMeta(type=corruption_type, level=args.corruption_level)
         aut, clsf = build_model(args=args)
         load_weight(args=args, aut=aut, clsf=clsf, mode='adaptation', metaInfo=cmeta)
         auts.append(aut)
         clsfs.append(clsf)
+        max_accus[corruption_type] = 0.
 
     print("Preparing datasets...")
     data_tfs = [Components(transforms=[
@@ -267,5 +265,21 @@ if __name__ == '__main__':
         )
         if epoch == args.max_epoch: break
         print('Adapting...')
+        for idx, corruption_type in enumerate(corruption_types):
+            adpt_set = SpeechCommandsV2C(
+                root_path=args.dataset_root_path, corruption_level=args.corruption_level, 
+                corruption_type=corruption_type, data_tf=Components(transforms=[
+                    MelSpectrogram(
+                        sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, 
+                        hop_length=hop_length, n_mels=args.n_mels, mel_scale=mel_scale
+                    ),
+                    AmplitudeToDB(top_db=80., max_out=2.),
+                    FrequenceTokenTransformer()
+                ])
+            )
+            adpt_set = IdxSet(dataset=adpt_set)
+            adpt_set = Subset(dataset=adpt_set, label_list=list(worst_list[corruption_type].keys()))
+            print(f'{corruption_type} adpt_set size is: {len(adpt_set)}')
+            
     wandb_run.finish()
     print('END!')

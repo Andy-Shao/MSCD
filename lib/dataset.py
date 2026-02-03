@@ -99,16 +99,12 @@ class Subset(Dataset):
         super().__init__()
         self.dataset = dataset
         self.label_list = label_list
-        self.set_IDs = self.__data_scanning__()
-
-    def __data_scanning__(self) -> list[int]:
-        return [idx for idx, (feature, label) in enumerate(self.dataset) if label in self.label_list]
     
     def __len__(self):
-        return len(self.set_IDs)
+        return len(self.label_list)
 
     def __getitem__(self, index):
-        return self.dataset[self.set_IDs[index]]
+        return self.dataset[self.label_list[index]]
 
 
 class TransferDataset(Dataset):
