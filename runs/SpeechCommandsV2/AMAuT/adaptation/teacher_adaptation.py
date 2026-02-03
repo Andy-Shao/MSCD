@@ -22,7 +22,7 @@ from ..utils import build_model, load_weight, inference
 
 def teacher_accu_analyzing(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
-        data_tf:nn.Module
+        data_tf:nn.Module, step:int, logger
     ):
     print('Teacher accuracy analyzing...')
     for aut in auts: aut.eval()
@@ -38,13 +38,13 @@ def teacher_accu_analyzing(
             num_workers=args.num_workers
         )
         accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=sc2_c_loader, tqdmable=False)
-        wandb.log(data={f'Accuracy/{corruption_type}-{args.corruption_level}': accu})
+        logger.log(data={f'Evaluation/{corruption_type}-{args.corruption_level} accuracy': accu}, step=step)
         accu_dic[f'{corruption_type}-{args.corruption_level}']=round(accu, ndigits=4)
     print(accu_dic)
 
 def collect_worst_item(
         args:argparse.Namespace, corruption_types:list[str], idx_cache:dict, pred_cache:dict,
-        output_cache:dict
+        output_cache:dict, step:int, logger
     ) -> dict:
     """return dict: key -> corruption type, value -> [idxs, labels]"""
     print('Scanning and finding the most worst K teachers...')
@@ -67,7 +67,7 @@ def collect_worst_item(
     # print('Worst list presentation:')
     for corruption_type in corruption_types:
         # print(f'type: {corruption_type}, size: {len(worst_list[corruption_type]['idxs'])}')
-        wandb.log(data={f'WorstList/{corruption_type}':len(worst_list[corruption_type]['idxs'])})
+        logger.log(data={f'WorstList/{corruption_type}':len(worst_list[corruption_type]['idxs'])}, step=step)
     return worst_list
 
 class WorstItemSearch:
@@ -116,7 +116,7 @@ class WorstItemSearch:
 
 def pseudo_labeling(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], data_loader:DataLoader,
-        corruption_types:list[str]
+        corruption_types:list[str], step:int, logger
     ):
     print("Pseudo-labeling...")
     for aut in auts: aut.eval()
@@ -151,7 +151,7 @@ def pseudo_labeling(
             pred_cache.append(final_preds)
             idx_cache.append(idxs)
     print(f'Teacher election pseudo-labeling accuracy is: {ttl_corr/ttl_size:.4f}')
-    wandb.log(data={'Accuracy/pseudo-labeling': ttl_corr/ttl_size})
+    logger.log(data={'Evaluation/pseudo-labeling accuracy': ttl_corr/ttl_size}, step=step)
 
     # Merging output cache
     tmp = {}
@@ -242,10 +242,10 @@ if __name__ == '__main__':
         num_workers=args.num_workers
     )
 
-    for epoch in range(args.max_epoch):
+    for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_accu_analyzing(
-            args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types, 
+            args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types, step=epoch, logger=wandb_run,
             data_tf=Components(transforms=[
                 MelSpectrogram(
                     sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
@@ -257,21 +257,15 @@ if __name__ == '__main__':
         )
         output_cache, pred_cache, idx_cache = pseudo_labeling(
             args=args, auts=auts, clsfs=clsfs, data_loader=sc2_c_loader, corruption_types=corruption_types,
+            step=epoch, logger=wandb_run
         )
 
         worst_list = collect_worst_item(
             args=args, corruption_types=corruption_types, idx_cache=idx_cache, 
-            pred_cache=pred_cache, output_cache=output_cache
+            pred_cache=pred_cache, output_cache=output_cache, step=epoch,
+            logger=wandb_run
         )
-    teacher_accu_analyzing(
-        args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types,
-        data_tf=Components(transforms=[
-            MelSpectrogram(
-                sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
-                n_mels=args.n_mels, mel_scale=mel_scale
-            ),
-            AmplitudeToDB(top_db=80., max_out=2.),
-            FrequenceTokenTransformer()
-        ])
-    )
+        if epoch == args.max_epoch: break
+        print('Adapting...')
+    wandb_run.finish()
     print('END!')
