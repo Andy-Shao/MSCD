@@ -19,6 +19,7 @@ from lib.spSet import SpeechCommandsV2C
 from lib.corruption import CorruptionMeta
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.optimizer import build_optimizer, lr_scheduler
+from lib.loss import CrossEntropyLabelSmooth
 from ..utils import build_model, load_weight, inference
 
 def teacher_accu_analyzing(
@@ -230,6 +231,7 @@ if __name__ == '__main__':
     auts, clsfs = [], []
     max_accus = {}
     optimizers = []
+    loss_fun = CrossEntropyLabelSmooth(num_classes=args.class_num, use_gpu=torch.cuda.is_available())
     for corruption_type in tqdm(corruption_types):
         cmeta = CorruptionMeta(type=corruption_type, level=args.corruption_level)
         aut, clsf = build_model(args=args)
@@ -314,9 +316,10 @@ if __name__ == '__main__':
 
                 outputs, _ = clsf(aut(features)[0])
                 # logsoft_nll
-                outputs = nn.functional.log_softmax(outputs, dim=1)
+                # outputs = nn.functional.log_softmax(outputs, dim=1)
                 _, preds = torch.max(labels, dim=1)
-                clsf_loss = nn.NLLLoss(reduction='mean')(outputs, preds)
+                # clsf_loss = nn.NLLLoss(reduction='mean')(outputs, preds)
+                clsf_loss = loss_fun(outputs, preds)
 
                 optimizer.zero_grad()
                 clsf_loss.backward()
