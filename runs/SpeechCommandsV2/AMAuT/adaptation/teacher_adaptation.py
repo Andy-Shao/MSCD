@@ -192,6 +192,7 @@ if __name__ == '__main__':
     ap.add_argument('--num_of_shft', type=int, default=3, help='maximum number of shifting teachers')
     ap.add_argument('--fail_coll_lim', type=int, default=3, help='maximum number of fail prediction be choosed in worst list')
     ap.add_argument('--max_epoch', type=int, default=20)
+    ap.add_argument('--forbid_ls', type=str, default="")
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -214,6 +215,8 @@ if __name__ == '__main__':
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.arch = 'AMAuT'
     args.elect_weights = json.loads(args.elect_weights)
+    if not args.forbid_ls.strip():  args.forbid_ls = []
+    else: args.forbid_ls = args.forbid_ls.split(',')
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.TEACHER_ADAPTATION)
     make_unless_exits(args.output_path)
     torch.backends.cudnn.benchmark = True
@@ -325,16 +328,14 @@ if __name__ == '__main__':
 
             for features, labels in adpt_loader:
                 if corruption_type not in shft_typs: break
+                if corruption_type in args.forbid_ls: break
                 features, labels = features.to(args.device), labels.to(args.device)  
                 if features.shape[0] == 1:
                     features = features.repeat(4, 1, 1)
                     labels = labels.repeat(4, 1)  
 
                 outputs, _ = clsf(aut(features)[0])
-                # logsoft_nll
-                # outputs = nn.functional.log_softmax(outputs, dim=1)
                 _, preds = torch.max(labels, dim=1)
-                # clsf_loss = nn.NLLLoss(reduction='mean')(outputs, preds)
                 clsf_loss = loss_fun(outputs, preds)
 
                 optimizer.zero_grad()
