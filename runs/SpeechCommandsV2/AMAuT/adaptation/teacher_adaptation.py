@@ -46,10 +46,10 @@ def teacher_accu_analyzing(
 def collect_worst_item(
         args:argparse.Namespace, corruption_types:list[str], idx_cache:dict, pred_cache:dict,
         output_cache:dict, step:int, logger
-    ) -> dict:
+    ) -> tuple[dict[str, dict], list[str]]:
     """return dict: key -> corruption type, value -> [idxs, labels]"""
     print('Scanning and finding the most worst K teachers...')
-    K = args.num_of_shft
+    K = args.fail_coll_lim
     assert K < len(corruption_types)
     worst_list = {} # key -> corruption type, value -> [idxs, labels]
     for corruption_type in corruption_types:
@@ -62,10 +62,17 @@ def collect_worst_item(
             worst_item[idx] = label
 
     # print('Worst list presentation:')
+    Q = args.num_of_shft
+    assert Q < len(corruption_types), Exception('Unsupport!')
+    shft_prio = {}
     for corruption_type in corruption_types:
-        print(f'type: {corruption_type}, size: {len(worst_list[corruption_type].keys())}')
+        shft_prio[corruption_type] = len(worst_list[corruption_type].keys()) / args.elect_weights[corruption_type]
+        print(f'type: {corruption_type}, size: {len(worst_list[corruption_type].keys())}, priority: {shft_prio[corruption_type]:.2f}')
         logger.log(data={f'WorstList/{corruption_type}':len(worst_list[corruption_type].keys())}, step=step)
-    return worst_list
+    shft_typs = [it[0] for it in sorted(shft_prio.items(), key=lambda x: x[1], reverse=True)]
+    shft_typs = shft_typs[0:Q]
+    print(f'Shifting corruption types are: {shft_typs}')
+    return worst_list, shft_typs
 
 class WorstItemSearch:
     def __init__(
@@ -166,11 +173,11 @@ if __name__ == '__main__':
     ap.add_argument('--num_workers', type=int, default=16)
     ap.add_argument('--output_path', type=str, default='./result')
     ap.add_argument('--batch_size', type=int, default=64)
-    ap.add_argument('--orig_wght_pth', type=str)
     ap.add_argument('--adpt_wght_path', type=str)
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
     ap.add_argument('--elect_weights', type=str)
-    ap.add_argument('--num_of_shft', type=int, default=3)
+    ap.add_argument('--num_of_shft', type=int, default=3, help='maximum number of shifting teachers')
+    ap.add_argument('--fail_coll_lim', type=int, default=3, help='maximum number of fail prediction be choosed in worst list')
     ap.add_argument('--max_epoch', type=int, default=20)
 
     ap.add_argument('--lr', type=float, default=1e-3)
@@ -270,7 +277,7 @@ if __name__ == '__main__':
             step=epoch, logger=wandb_run
         )
 
-        worst_list = collect_worst_item(
+        worst_list, shft_typs = collect_worst_item(
             args=args, corruption_types=corruption_types, idx_cache=idx_cache, 
             pred_cache=pred_cache, output_cache=output_cache, step=epoch,
             logger=wandb_run
@@ -302,13 +309,14 @@ if __name__ == '__main__':
             optimizer = optimizers[idx]
 
             for features, labels in adpt_loader:
+                if corruption_type not in shft_typs: break
                 features, labels = features.to(args.device), labels.to(args.device)    
 
                 outputs, _ = clsf(aut(features)[0])
                 # logsoft_nll
                 outputs = nn.functional.log_softmax(outputs, dim=1)
                 _, preds = torch.max(labels, dim=1)
-                clsf_loss = nn.NLLLoss(reduce='mean')(outputs, preds)
+                clsf_loss = nn.NLLLoss(reduction='mean')(outputs, preds)
 
                 optimizer.zero_grad()
                 clsf_loss.backward()
