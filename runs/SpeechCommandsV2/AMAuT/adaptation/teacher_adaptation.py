@@ -31,17 +31,28 @@ def teacher_accu_analyzing(
     for clsf in clsfs: clsf.eval()
     accu_dic = {}
     for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
-        sc2_c = SpeechCommandsV2C(
-            root_path=args.dataset_root_path, corruption_level=args.corruption_level, 
+        adpt_set = SpeechCommandsV2C(
+            root_path=args.adpt_set_path, corruption_level=args.corruption_level, 
             corruption_type=corruption_type, data_tf=data_tf
         )
-        sc2_c_loader = DataLoader(
-            dataset=sc2_c, batch_size=args.batch_size, shuffle=False, drop_last=False, 
+        adpt_loader = DataLoader(
+            dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
             num_workers=args.num_workers
         )
-        accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=sc2_c_loader, tqdmable=False)
-        logger.log(data={f'Accuracy/{corruption_type}-{args.corruption_level}': accu}, step=step)
+        accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=adpt_loader, tqdmable=False)
+        logger.log(data={f'Adaptation/{corruption_type}-{args.corruption_level} Accuracy': accu}, step=step)
         accu_dic[f'{corruption_type}-{args.corruption_level}']=round(accu, ndigits=4)
+
+        eval_set = SpeechCommandsV2C(
+            root_path=args.eval_set_path, corruption_level=args.corruption_level, 
+            corruption_type=corruption_type, data_tf=data_tf
+        )
+        eval_loader = DataLoader(
+            dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
+            num_workers=args.num_workers
+        )
+        accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=eval_loader, tqdmable=False)
+        logger.log(data={f'Evaluation/{corruption_type}-{args.corruption_level} Accuracy': accu}, step=step)
     print(accu_dic)
 
 def collect_worst_item(
@@ -156,7 +167,7 @@ def pseudo_labeling(
             pred_cache.append(final_preds)
             idx_cache.append(idxs)
     print(f'Teacher election pseudo-labeling accuracy is: {ttl_corr/ttl_size:.4f}')
-    logger.log(data={'Accuracy/pseudo-labeling': ttl_corr/ttl_size}, step=step)
+    logger.log(data={'Adaptation/pseudo-labeling Accuracy': ttl_corr/ttl_size}, step=step)
 
     # Merging output cache
     tmp = {}
@@ -170,7 +181,8 @@ def pseudo_labeling(
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--dataset', type=str, default='SpeechCommandsV2', choices=['SpeechCommandsV2'])
-    ap.add_argument('--dataset_root_path', type=str)
+    ap.add_argument('--adpt_set_path', type=str)
+    ap.add_argument('--eval_set_path', type=str)
     ap.add_argument('--num_workers', type=int, default=16)
     ap.add_argument('--output_path', type=str, default='./result')
     ap.add_argument('--batch_size', type=int, default=64)
@@ -215,7 +227,8 @@ if __name__ == '__main__':
     ##########################################
     wandb_run = wandb.init(
         project=f'{constants.PROJECT_TITLE}-{constants.TEACHER_ADAPTATION}', 
-        name=f'{constants.architecture_dic[args.arch]}-{constants.dataset_dic[args.dataset]}', mode='online' if args.wandb else 'disabled', 
+        name=f'{constants.architecture_dic[args.arch]}-{constants.dataset_dic[args.dataset]}-{args.corruption_level}', 
+        mode='online' if args.wandb else 'disabled', 
         config=args, tags=['Audio Classification', 'Teacher Adaptation', args.dataset]
     )
 
@@ -252,7 +265,7 @@ if __name__ == '__main__':
         FrequenceTokenTransformer()
     ])] * len(corruption_types)
     sc2_c = SpeechCommandsV2C(
-        root_path=args.dataset_root_path, corruption_type=corruption_types, corruption_level=args.corruption_level,
+        root_path=args.adpt_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level,
         data_tf=data_tfs
     )
     sc2_c = IdxSet(dataset=sc2_c)
@@ -290,7 +303,7 @@ if __name__ == '__main__':
         for clsf in clsfs: clsf.train()
         for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
             adpt_set = SpeechCommandsV2C(
-                root_path=args.dataset_root_path, corruption_level=args.corruption_level, 
+                root_path=args.adpt_set_path, corruption_level=args.corruption_level, 
                 corruption_type=corruption_type, data_tf=Components(transforms=[
                     MelSpectrogram(
                         sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, 
@@ -312,7 +325,10 @@ if __name__ == '__main__':
 
             for features, labels in adpt_loader:
                 if corruption_type not in shft_typs: break
-                features, labels = features.to(args.device), labels.to(args.device)    
+                features, labels = features.to(args.device), labels.to(args.device)  
+                if features.shape[0] == 1:
+                    features = features.repeat(4, 1, 1)
+                    labels = labels.repeat(4, 1)  
 
                 outputs, _ = clsf(aut(features)[0])
                 # logsoft_nll
