@@ -24,7 +24,7 @@ from ..utils import build_model, load_weight, inference, store_weight
 
 def teacher_accu_analyzing(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
-        data_tf:nn.Module, step:int, logger, max_accus:dict[str, float]
+        data_tf:nn.Module, step:int, logger
     ):
     print('Teacher accuracy analyzing...')
     for aut in auts: aut.eval()
@@ -42,12 +42,12 @@ def teacher_accu_analyzing(
         accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=adpt_loader, tqdmable=False)
         logger.log(data={f'Adaptation/{corruption_type}-{args.corruption_level} Accuracy': accu}, step=step)
         accu_dic[f'{corruption_type}-{args.corruption_level}']=round(accu, ndigits=4)
-        if max_accus[corruption_type] <= accu:
-            max_accus[corruption_type] = accu
-            store_weight(
-                args=args, aut=aut, clsf=clsf, mode='adaptation', root_path=args.output_path,
-                metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
-            )
+        # if max_accus[corruption_type] <= accu:
+        #     max_accus[corruption_type] = accu
+        #     store_weight(
+        #         args=args, aut=aut, clsf=clsf, mode='adaptation', root_path=args.output_path,
+        #         metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
+        #     )
 
         eval_set = SpeechCommandsV2C(
             root_path=args.eval_set_path, corruption_level=args.corruption_level, 
@@ -172,8 +172,9 @@ def pseudo_labeling(
         else: 
             pred_cache.append(final_preds)
             idx_cache.append(idxs)
-    print(f'Teacher election pseudo-labeling accuracy is: {ttl_corr/ttl_size:.4f}')
-    logger.log(data={'Adaptation/pseudo-labeling Accuracy': ttl_corr/ttl_size}, step=step)
+    pseudo_accu = ttl_corr/ttl_size
+    print(f'Teacher election pseudo-labeling accuracy is: {pseudo_accu:.4f}')
+    logger.log(data={'Adaptation/pseudo-labeling Accuracy': pseudo_accu}, step=step)
 
     # Merging output cache
     tmp = {}
@@ -182,7 +183,7 @@ def pseudo_labeling(
     output_cache = tmp
     pred_cache = torch.concat(pred_cache, dim=0)
     idx_cache = torch.concat(idx_cache, dim=0)
-    return output_cache, pred_cache, idx_cache
+    return output_cache, pred_cache, idx_cache, pseudo_accu
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -251,7 +252,8 @@ if __name__ == '__main__':
 
     print("Initialization...")
     auts, clsfs = [], []
-    max_accus = {}
+    # max_accus = {}
+    max_pseudo_accu = 0.
     optimizers = []
     loss_fun = CrossEntropyLabelSmooth(num_classes=args.class_num, use_gpu=torch.cuda.is_available())
     for corruption_type in tqdm(corruption_types):
@@ -260,7 +262,7 @@ if __name__ == '__main__':
         load_weight(args=args, aut=aut, clsf=clsf, mode='adaptation', metaInfo=cmeta)
         auts.append(aut)
         clsfs.append(clsf)
-        max_accus[corruption_type] = 0.
+        # max_accus[corruption_type] = 0.
         optimizer = build_optimizer(lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay)
         optimizers.append(optimizer)
 
@@ -294,12 +296,21 @@ if __name__ == '__main__':
                 ),
                 AmplitudeToDB(top_db=80., max_out=2.),
                 FrequenceTokenTransformer()
-            ]), max_accus=max_accus
+            ])
         )
-        output_cache, pred_cache, idx_cache = pseudo_labeling(
+        output_cache, pred_cache, idx_cache, pseudo_accu = pseudo_labeling(
             args=args, auts=auts, clsfs=clsfs, data_loader=sc2_c_loader, corruption_types=corruption_types,
             step=epoch, logger=wandb_run
         )
+        if max_pseudo_accu <= pseudo_accu:
+            max_pseudo_accu = pseudo_accu
+            for i, corruption_type in enumerate(corruption_types):
+                aut, clsf = auts[i], clsfs[i]
+                store_weight(
+                    args=args, aut=aut, clsf=clsf, mode='adaptation', 
+                    metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
+                    root_path=args.output_path
+                )
 
         worst_list, shft_typs = collect_worst_item(
             args=args, corruption_types=corruption_types, idx_cache=idx_cache, 
