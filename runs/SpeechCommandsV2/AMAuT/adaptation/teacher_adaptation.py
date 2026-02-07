@@ -20,11 +20,11 @@ from lib.corruption import CorruptionMeta
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.loss import CrossEntropyLabelSmooth
-from ..utils import build_model, load_weight, inference
+from ..utils import build_model, load_weight, inference, store_weight
 
 def teacher_accu_analyzing(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
-        data_tf:nn.Module, step:int, logger
+        data_tf:nn.Module, step:int, logger, max_accus:dict[str, float]
     ):
     print('Teacher accuracy analyzing...')
     for aut in auts: aut.eval()
@@ -42,6 +42,12 @@ def teacher_accu_analyzing(
         accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=adpt_loader, tqdmable=False)
         logger.log(data={f'Adaptation/{corruption_type}-{args.corruption_level} Accuracy': accu}, step=step)
         accu_dic[f'{corruption_type}-{args.corruption_level}']=round(accu, ndigits=4)
+        if max_accus[corruption_type] <= accu:
+            max_accus[corruption_type] = accu
+            store_weight(
+                args=args, aut=aut, clsf=clsf, mode='adaptation', root_path=args.output_path,
+                metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
+            )
 
         eval_set = SpeechCommandsV2C(
             root_path=args.eval_set_path, corruption_level=args.corruption_level, 
@@ -75,7 +81,7 @@ def collect_worst_item(
 
     # print('Worst list presentation:')
     Q = args.num_of_shft
-    assert Q < len(corruption_types), Exception('Unsupport!')
+    assert Q < len(corruption_types), 'Unsupport!'
     shft_prio = {}
     for corruption_type in corruption_types:
         shft_prio[corruption_type] = len(worst_list[corruption_type].keys()) / args.elect_weights[corruption_type]
@@ -94,7 +100,7 @@ class WorstItemSearch:
         self.idxs = idxs
         self.preds = preds
         self.outputs = outputs
-        assert K > 0, Exception('Unsupport')
+        assert K > 0, 'Unsupport'
         self.K = K
         self.corruption_types = corruption_types
         self.i = 0
@@ -288,7 +294,7 @@ if __name__ == '__main__':
                 ),
                 AmplitudeToDB(top_db=80., max_out=2.),
                 FrequenceTokenTransformer()
-            ])
+            ]), max_accus=max_accus
         )
         output_cache, pred_cache, idx_cache = pseudo_labeling(
             args=args, auts=auts, clsfs=clsfs, data_loader=sc2_c_loader, corruption_types=corruption_types,

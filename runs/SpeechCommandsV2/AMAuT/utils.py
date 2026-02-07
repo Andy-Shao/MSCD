@@ -41,15 +41,30 @@ def build_model(args:argparse.Namespace) -> tuple[FCETransform, AudioClassifier]
 
     return auTmodel, clsmodel
 
-def load_weight(
-    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, mode='origin', metaInfo:CorruptionMeta=None
-) -> None:
+def __cal_model_path__(args:argparse.Namespace, mode='origin', metaInfo:CorruptionMeta=None, root_path:str=None) -> tuple[str, str]:
     assert mode in ['origin', 'adaptation'], 'No support'
     if mode == 'origin':
-        a_p = os.path.join(args.orig_wght_pth, f'aut-{constants.dataset_dic[args.dataset]}.pt')
-        c_p = os.path.join(args.orig_wght_pth, f'clsf-{constants.dataset_dic[args.dataset]}.pt')
+        if root_path is None: root_path = args.orig_wght_pth
+        a_p = os.path.join(root_path, f'aut-{constants.dataset_dic[args.dataset]}.pt')
+        c_p = os.path.join(root_path, f'clsf-{constants.dataset_dic[args.dataset]}.pt')
     elif mode == 'adaptation':
-        a_p = os.path.join(args.adpt_wght_path, f'aut-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
-        c_p = os.path.join(args.adpt_wght_path, f'clsf-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
+        if root_path is None: root_path = args.adpt_wght_path
+        a_p = os.path.join(root_path, f'aut-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
+        c_p = os.path.join(root_path, f'clsf-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
+    return a_p, c_p
+
+def load_weight(
+    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, mode='origin', metaInfo:CorruptionMeta=None,
+    root_path:str=None
+) -> None:
+    a_p, c_p = __cal_model_path__(args=args, root_path=root_path, mode=mode, metaInfo=metaInfo)
     aut.load_state_dict(state_dict=torch.load(a_p, weights_only=True))
     clsf.load_state_dict(state_dict=torch.load(c_p, weights_only=True))
+
+def store_weight(
+    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, mode='origin', metaInfo:CorruptionMeta=None,
+    root_path:str=None
+) -> None:
+    a_p, c_p = __cal_model_path__(args=args, root_path=root_path, mode=mode, metaInfo=metaInfo)
+    torch.save(obj=aut.state_dict(), f=a_p)
+    torch.save(obj=clsf.state_dict(), f=c_p)
