@@ -5,10 +5,11 @@ import torch
 from torch import nn
 
 def indexes2oneHot(labels:torch.Tensor, class_num:int) -> torch.Tensor:
-    ret = []
-    for idx in range(labels.shape[0]):
-        ret.append(index2oneHot(label=labels[idx].item(), class_num=class_num).unsqueeze(dim=0))
-    return torch.cat(ret, dim=0)
+    # ret = []
+    # for idx in range(labels.shape[0]):
+    #     ret.append(index2oneHot(label=labels[idx].item(), class_num=class_num).unsqueeze(dim=0))
+    # return torch.cat(ret, dim=0)
+    return torch.zeros(labels.shape[0], class_num).scatter_(1, labels.unsqueeze(1).cpu(), 1)
 
 def index2oneHot(label:int, class_num:int) -> torch.Tensor:
     eyes = torch.eye(class_num)
