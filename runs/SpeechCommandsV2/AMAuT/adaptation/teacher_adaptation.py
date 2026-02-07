@@ -42,12 +42,6 @@ def teacher_accu_analyzing(
         accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=adpt_loader, tqdmable=False)
         logger.log(data={f'Adaptation/{corruption_type}-{args.corruption_level} Accuracy': accu}, step=step)
         accu_dic[f'{corruption_type}-{args.corruption_level}']=round(accu, ndigits=4)
-        # if max_accus[corruption_type] <= accu:
-        #     max_accus[corruption_type] = accu
-        #     store_weight(
-        #         args=args, aut=aut, clsf=clsf, mode='adaptation', root_path=args.output_path,
-        #         metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
-        #     )
 
         eval_set = SpeechCommandsV2C(
             root_path=args.eval_set_path, corruption_level=args.corruption_level, 
@@ -252,7 +246,6 @@ if __name__ == '__main__':
 
     print("Initialization...")
     auts, clsfs = [], []
-    # max_accus = {}
     max_pseudo_accu = 0.
     optimizers = []
     loss_fun = CrossEntropyLabelSmooth(num_classes=args.class_num, use_gpu=torch.cuda.is_available())
@@ -262,7 +255,6 @@ if __name__ == '__main__':
         load_weight(args=args, aut=aut, clsf=clsf, mode='adaptation', metaInfo=cmeta)
         auts.append(aut)
         clsfs.append(clsf)
-        # max_accus[corruption_type] = 0.
         optimizer = build_optimizer(lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay)
         optimizers.append(optimizer)
 
