@@ -4,6 +4,27 @@ import random
 import torch
 from torch import nn
 
+class TimeShift(nn.Module):
+    def __init__(self, shift_limit: float, is_random=True, is_bidirection=False) -> None:
+        """
+        Time shift data augmentation
+
+        :param shift_limit: shift_limit -> (-1, 1), shift_limit < 0 is left shift
+        """
+        super().__init__()
+        self.shift_limit = shift_limit
+        self.is_random = is_random
+        self.is_bidirection = is_bidirection
+
+    def forward(self, wavform: torch.Tensor) -> torch.Tensor:
+        if self.is_random:
+            shift_arg = int(random.random() * self.shift_limit * wavform.shape[1])
+            if self.is_bidirection:
+                shift_arg = int((random.random() * 2 - 1) * self.shift_limit * wavform.shape[1])
+        else:
+            shift_arg = int(self.shift_limit * wavform.shape[1])
+        return wavform.roll(shifts=shift_arg)
+
 class DoNothing(nn.Module):
     def __init__(self):
         super().__init__()
