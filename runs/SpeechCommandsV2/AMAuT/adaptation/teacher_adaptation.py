@@ -40,7 +40,7 @@ def teacher_accu_analyzing(
             num_workers=args.num_workers
         )
         accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=adpt_loader, tqdmable=False)
-        logger.log(data={f'Adaptation/{corruption_type}-{args.corruption_level} Accuracy': accu}, step=step)
+        logger.log(data={f'Adaptation/{corruption_type} Accuracy': accu}, step=step)
         accu_dic[f'{corruption_type}-{args.corruption_level}']=round(accu, ndigits=4)
 
         eval_set = SpeechCommandsV2C(
@@ -52,7 +52,7 @@ def teacher_accu_analyzing(
             num_workers=args.num_workers
         )
         accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=eval_loader, tqdmable=False)
-        logger.log(data={f'Evaluation/{corruption_type}-{args.corruption_level} Accuracy': accu}, step=step)
+        logger.log(data={f'Evaluation/{corruption_type} Accuracy': accu}, step=step)
     print(accu_dic)
 
 def collect_worst_item(
