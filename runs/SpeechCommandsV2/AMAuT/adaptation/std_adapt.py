@@ -17,34 +17,66 @@ from lib.spSet import SpeechCommandsV2C
 from lib.corruption import CorruptionMeta
 from lib.dataset import IdxSet, PseudoLabelSet
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
+from lib.optimizer import build_optimizer, lr_scheduler
 from ..utils import build_model, load_weight
 
-def student_accu_analyzing(
-    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, corruption_types:list[str],
-    data_tf:nn.Module
-) -> float:
-    print('Student accuracy analyzing...')
+def inference(
+    args:argparse.Namespace, corruption_types:list[str], aut:nn.Module, clsf:nn.Module, 
+    data_loader:DataLoader
+) -> tuple[float, dict[str, float]]:
+    aut.eval(); clsf.eval()
     ttl_corrs, ttl_sizes = {it: 0. for it in corruption_types}, {it: 0. for it in corruption_types}
     local_accus = {}
-    for corruption_type in tqdm(corruption_types):
-        eval_set = SpeechCommandsV2C(
-            root_path=args.eval_set_path, corruption_level=args.corruption_level, 
-            corruption_type=corruption_type, data_tf=data_tf
-        )
-        eval_loader = DataLoader(
-            dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
-            num_workers=args.num_workers
-        )
-        for features, labels in eval_loader:
-            features = features.to(args.device)
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            corruption_type = corruption_types[i]
+            features = data[i].to(args.device)
+
             with torch.inference_mode():
                 outputs, _ = clsf(aut(features)[0])
                 _, preds = torch.max(outputs.detach().cpu(), dim=1)
             ttl_corrs[corruption_type] += (preds==labels).sum().item()
             ttl_sizes[corruption_type] += labels.shape[0]
-        local_accus[corruption_type] = round(ttl_corrs[corruption_type]/ttl_sizes[corruption_type], ndigits=4)
-    print(f'Local accuracies are: {local_accus}')
-    global_accu = sum([value for key, value in ttl_corrs.items()])/sum([value for key, value in ttl_sizes.items()])
+    for corruption_type in corruption_types:
+        local_accus[corruption_type] = ttl_corrs[corruption_type]/ttl_sizes[corruption_type]
+    global_accu = sum([v for k,v in ttl_corrs.items()])/sum([v for k,v in ttl_sizes.items()])
+    return global_accu, local_accus
+
+def student_accu_analyzing(
+    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, corruption_types:list[str],
+    data_tfs:list[nn.Module]
+) -> float:
+    print('Adapataion set accuracy analyzing...')
+    ttl_corrs, ttl_sizes = {it: 0. for it in corruption_types}, {it: 0. for it in corruption_types}
+    local_accus = {}
+    adpt_set = SpeechCommandsV2C(
+        root_path=args.adpt_set_path, corruption_level=args.corruption_level, 
+        corruption_type=corruption_types, data_tf=data_tfs
+    )
+    adpt_loader = DataLoader(
+        dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
+        num_workers=args.num_workers
+    )
+    global_accu, local_accus = inference(
+        args=args, corruption_types=corruption_types, aut=aut, clsf=clsf, data_loader=adpt_loader
+    )
+    print('Local accuracies are:', {key: round(value, ndigits=4) for key, value in local_accus.items()})
+    print(f'Global accuracy is: {global_accu:.4f}')
+
+    print('Evaluation set accuracy analyzing...')
+    eval_set = SpeechCommandsV2C(
+        root_path=args.eval_set_path, corruption_level=args.corruption_level, 
+        corruption_type=corruption_types, data_tf=data_tfs
+    )
+    eval_loader = DataLoader(
+        dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
+        num_workers=args.num_workers
+    )
+    global_accu, local_accus = inference(
+        args=args, corruption_types=corruption_types, aut=aut, clsf=clsf, data_loader=eval_loader
+    )
+    print('Local accuracies are:', {key: round(value, ndigits=4) for key, value in local_accus.items()})
     print(f'Global accuracy is: {global_accu:.4f}')
     return global_accu
 
@@ -103,7 +135,7 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
     print('Calculating pseudo-labels...')
     pseudo_labels = {} # key -> idx, value -> smoothed label
     for i in tqdm(range(len(idx_cache)), total=len(idx_cache)):
-        idx = idx_cache[i]
+        idx = int(idx_cache[i].item())
         pred = pred_cache[i]
         pred = index2oneHot(label=pred.item(), class_num=args.class_num)
         smooth = .1
@@ -184,8 +216,6 @@ if __name__ == '__main__':
             FrequenceTokenTransformer()
         ])] * len(corruption_types)
     )
-    aut, clsf = build_model(args=args)
-    load_weight(args=args, aut=aut, clsf=clsf, mode='origin')
     adpt_set = SpeechCommandsV2C(
         root_path=args.adpt_set_path, corruption_level=args.corruption_level, 
         corruption_type=corruption_types, 
@@ -198,32 +228,58 @@ if __name__ == '__main__':
             FrequenceTokenTransformer()
         ])] * len(corruption_types)
     )
-    adpt_set = PseudoLabelSet(dataset=adpt_set, pseudo_labels=pseudo_labels, label_position=1)
+    adpt_set = PseudoLabelSet(dataset=adpt_set, pseudo_labels=pseudo_labels, label_position=7)
     adpt_loader = DataLoader(
         dataset=adpt_set, batch_size=args.batch_size, shuffle=True, drop_last=False, 
         num_workers=args.num_workers
     )
+    aut, clsf = build_model(args=args)
+    load_weight(args=args, aut=aut, clsf=clsf, mode='origin')
+    optimizer = build_optimizer(
+        lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay
+    )
 
     print('Student Adaptation')
+    max_accu = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         print('Inferencing...')
         accu = student_accu_analyzing(
             args=args, aut=aut, clsf=clsf, corruption_types=corruption_types, 
-            data_tf=Components(transforms=[
+            data_tfs=[Components(transforms=[
                 MelSpectrogram(
                     sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
                     n_mels=args.n_mels, mel_scale=mel_scale
                 ),
                 AmplitudeToDB(top_db=80., max_out=2.),
                 FrequenceTokenTransformer()
-            ])
+            ])] * len(corruption_types)
         )
         ## TODO: if it is the maximum accuracy then store it.
         
-        if epoch >= args.max_epoch: continue
+        if epoch >= args.max_epoch: break
         print('Adaptating...')
-        for features, labels in tqdm(adpt_loader):
-            features, labels = features.to(args.device), labels.to(args.device)
+        aut.train(); clsf.train()
+        for adpt_data in tqdm(adpt_loader):
+            labels = adpt_data[-1].to(args.device)
+            for i in range(len(adpt_data)-1):
+                features = adpt_data[i].to(args.device)
 
+                outputs, _ = clsf(aut(features)[0])
+
+                # clsf_loss
+                clsf_loss = (-labels * outputs).sum(dim=1) # cross-entropy loss
+                clsf_loss = clsf_loss.mean()
+                if i == 0:
+                    ttl_loss = clsf_loss
+                else: 
+                    ttl_loss += clsf_loss
+            optimizer.zero_grad()
+            ttl_loss.backward()
+            optimizer.step()
+        if epoch % args.interval == 0:
+            lr_scheduler(
+                optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
+                gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+            )
     print('END!')
