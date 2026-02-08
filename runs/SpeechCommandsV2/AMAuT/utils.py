@@ -11,8 +11,31 @@ from lib.corruption import CorruptionMeta
 from AuT.lib.config import AuT_base
 from AuT.lib.model import FCETransform, AudioClassifier
 
+def mlt_inference(
+    args:argparse.Namespace, corruption_types:list[str], aut:nn.Module, clsf:nn.Module, 
+    data_loader:DataLoader
+) -> tuple[float, dict[str, float]]:
+    aut.eval(); clsf.eval()
+    ttl_corrs, ttl_sizes = {it: 0. for it in corruption_types}, {it: 0. for it in corruption_types}
+    local_accus = {}
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            corruption_type = corruption_types[i]
+            features = data[i].to(args.device)
+
+            with torch.inference_mode():
+                outputs, _ = clsf(aut(features)[0])
+                _, preds = torch.max(outputs.detach().cpu(), dim=1)
+            ttl_corrs[corruption_type] += (preds==labels).sum().item()
+            ttl_sizes[corruption_type] += labels.shape[0]
+    for corruption_type in corruption_types:
+        local_accus[corruption_type] = ttl_corrs[corruption_type]/ttl_sizes[corruption_type]
+    global_accu = sum([v for k,v in ttl_corrs.items()])/sum([v for k,v in ttl_sizes.items()])
+    return global_accu, local_accus
+
 def inference(
-    args:argparse.Namespace, aut:FCETransform, clsf:AudioClassifier, data_loader:DataLoader,
+    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, data_loader:DataLoader,
     tqdmable:bool=True
 ):
     aut.eval(); clsf.eval()

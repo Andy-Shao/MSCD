@@ -3,7 +3,7 @@ import json
 import os
 import numpy as np
 import random
-# import wandb
+import wandb
 from tqdm import tqdm
 
 import torch
@@ -18,34 +18,11 @@ from lib.corruption import CorruptionMeta
 from lib.dataset import IdxSet, PseudoLabelSet
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.optimizer import build_optimizer, lr_scheduler
-from ..utils import build_model, load_weight
-
-def inference(
-    args:argparse.Namespace, corruption_types:list[str], aut:nn.Module, clsf:nn.Module, 
-    data_loader:DataLoader
-) -> tuple[float, dict[str, float]]:
-    aut.eval(); clsf.eval()
-    ttl_corrs, ttl_sizes = {it: 0. for it in corruption_types}, {it: 0. for it in corruption_types}
-    local_accus = {}
-    for data in tqdm(data_loader):
-        labels = data[-1]
-        for i in range(len(data)-1):
-            corruption_type = corruption_types[i]
-            features = data[i].to(args.device)
-
-            with torch.inference_mode():
-                outputs, _ = clsf(aut(features)[0])
-                _, preds = torch.max(outputs.detach().cpu(), dim=1)
-            ttl_corrs[corruption_type] += (preds==labels).sum().item()
-            ttl_sizes[corruption_type] += labels.shape[0]
-    for corruption_type in corruption_types:
-        local_accus[corruption_type] = ttl_corrs[corruption_type]/ttl_sizes[corruption_type]
-    global_accu = sum([v for k,v in ttl_corrs.items()])/sum([v for k,v in ttl_sizes.items()])
-    return global_accu, local_accus
+from ..utils import build_model, load_weight, mlt_inference
 
 def student_accu_analyzing(
     args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, corruption_types:list[str],
-    data_tfs:list[nn.Module]
+    data_tfs:list[nn.Module], step:int, logger
 ) -> float:
     print('Adapataion set accuracy analyzing...')
     ttl_corrs, ttl_sizes = {it: 0. for it in corruption_types}, {it: 0. for it in corruption_types}
@@ -58,11 +35,14 @@ def student_accu_analyzing(
         dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
         num_workers=args.num_workers
     )
-    global_accu, local_accus = inference(
+    global_accu, local_accus = mlt_inference(
         args=args, corruption_types=corruption_types, aut=aut, clsf=clsf, data_loader=adpt_loader
     )
     print('Local accuracies are:', {key: round(value, ndigits=4) for key, value in local_accus.items()})
     print(f'Global accuracy is: {global_accu:.4f}')
+    for k,v in local_accus.items():
+        logger.log(data={f'Adaptation/{k} accuracy': v}, step=step)
+    logger.log(data={f'Adaptation/Global accuracy': global_accu}, step=step)
 
     print('Evaluation set accuracy analyzing...')
     eval_set = SpeechCommandsV2C(
@@ -73,11 +53,14 @@ def student_accu_analyzing(
         dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
         num_workers=args.num_workers
     )
-    global_accu, local_accus = inference(
+    global_accu, local_accus = mlt_inference(
         args=args, corruption_types=corruption_types, aut=aut, clsf=clsf, data_loader=eval_loader
     )
     print('Local accuracies are:', {key: round(value, ndigits=4) for key, value in local_accus.items()})
     print(f'Global accuracy is: {global_accu:.4f}')
+    for k,v in local_accus.items():
+        logger.log(data={f'Evaluation/{k} accuracy': v}, step=step)
+    logger.log(data={f'Evaluation/Global accuracy': global_accu}, step=step)
     return global_accu
 
 def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tfs:list[nn.Module]):
@@ -189,12 +172,12 @@ if __name__ == '__main__':
 
     print_argparse(args)
     ##########################################
-    # wandb_run = wandb.init(
-    #     project=f'{constants.PROJECT_TITLE}-{constants.STUDENT_ADAPTATION}', 
-    #     name=f'{constants.architecture_dic[args.arch]}-{constants.dataset_dic[args.dataset]}-{args.corruption_level}', 
-    #     mode='online' if args.wandb else 'disabled', 
-    #     config=args, tags=['Audio Classification', 'Student Adaptation', args.dataset]
-    # )
+    wandb_run = wandb.init(
+        project=f'{constants.PROJECT_TITLE}-{constants.STUDENT_ADAPTATION}', 
+        name=f'{constants.architecture_dic[args.arch]}-{constants.dataset_dic[args.dataset]}-{args.corruption_level}', 
+        mode='online' if args.wandb else 'disabled', 
+        config=args, tags=['Audio Classification', 'Student Adaptation', args.dataset]
+    )
 
     corruption_types=['WHN', 'ENQ', 'END1', 'END2', 'ENSC', 'PSH', 'TST']
     args.n_mels=80
@@ -206,7 +189,7 @@ if __name__ == '__main__':
 
     print("Initialization...")
     pseudo_labels = pseudo_labeling(
-        args=args, corruption_types=corruption_types, 
+        args=args, corruption_types=corruption_types,
         data_tfs=[Components(transforms=[
             MelSpectrogram(
                 sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
@@ -245,7 +228,7 @@ if __name__ == '__main__':
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         print('Inferencing...')
         accu = student_accu_analyzing(
-            args=args, aut=aut, clsf=clsf, corruption_types=corruption_types, 
+            args=args, aut=aut, clsf=clsf, corruption_types=corruption_types, step=epoch,
             data_tfs=[Components(transforms=[
                 MelSpectrogram(
                     sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
@@ -253,7 +236,7 @@ if __name__ == '__main__':
                 ),
                 AmplitudeToDB(top_db=80., max_out=2.),
                 FrequenceTokenTransformer()
-            ])] * len(corruption_types)
+            ])] * len(corruption_types), logger=wandb_run
         )
         ## TODO: if it is the maximum accuracy then store it.
         
@@ -282,4 +265,5 @@ if __name__ == '__main__':
                 optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
                 gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
             )
+    wandb_run.finish()
     print('END!')
