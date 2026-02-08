@@ -38,8 +38,8 @@ def student_accu_analyzing(
     global_accu, local_accus = mlt_inference(
         args=args, corruption_types=corruption_types, aut=aut, clsf=clsf, data_loader=adpt_loader
     )
-    print('Local accuracies are:', {key: round(value, ndigits=4) for key, value in local_accus.items()})
-    print(f'Global accuracy is: {global_accu:.4f}')
+    print('Adaptation local accuracies are:', {key: round(value, ndigits=4) for key, value in local_accus.items()})
+    print(f'Adaptation global accuracy is: {global_accu:.4f}')
     for k,v in local_accus.items():
         logger.log(data={f'Adaptation/{k} accuracy': v}, step=step)
     logger.log(data={f'Adaptation/Global accuracy': global_accu}, step=step)
@@ -56,8 +56,8 @@ def student_accu_analyzing(
     global_accu, local_accus = mlt_inference(
         args=args, corruption_types=corruption_types, aut=aut, clsf=clsf, data_loader=eval_loader
     )
-    print('Local accuracies are:', {key: round(value, ndigits=4) for key, value in local_accus.items()})
-    print(f'Global accuracy is: {global_accu:.4f}')
+    print('Evaluation local accuracies are:', {key: round(value, ndigits=4) for key, value in local_accus.items()})
+    print(f'Evaluation global accuracy is: {global_accu:.4f}')
     for k,v in local_accus.items():
         logger.log(data={f'Evaluation/{k} accuracy': v}, step=step)
     logger.log(data={f'Evaluation/Global accuracy': global_accu}, step=step)
