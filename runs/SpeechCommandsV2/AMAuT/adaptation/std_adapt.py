@@ -94,6 +94,7 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
             features = data[j].to(args.device)
             aut = auts[j-1]
             clsf = clsfs[j-1]
+            corruption_type = corruption_types[j-1]
             with torch.inference_mode():
                 outputs, _ = clsf(aut(features)[0])
                 _, preds = torch.max(outputs.detach().cpu(), dim=1)
@@ -101,8 +102,7 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
             preds = preds * args.elect_weights[corruption_type]
             if j == 1: final_preds = preds
             else: final_preds = final_preds + preds
-        _, final_preds = torch.max(final_preds, dim=1)
-        ttl_corr += (final_preds==labels).sum().item()
+        ttl_corr += (torch.max(final_preds, dim=1)[1]==labels).sum().item()
         ttl_size += labels.shape[0]
         if k == 0:
             idx_cache = [idxs]
@@ -120,9 +120,11 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
     for i in tqdm(range(len(idx_cache)), total=len(idx_cache)):
         idx = int(idx_cache[i].item())
         pred = pred_cache[i]
-        pred = index2oneHot(label=pred.item(), class_num=args.class_num)
-        smooth = .1
-        pred = (1-smooth)*pred + smooth/args.class_num
+        pseudo_smooth = .1
+        pseudo_threshold = 4.5
+        max_val, max_pos = torch.max(pred, dim=0)
+        pred = torch.eye(args.class_num)[max_pos]
+        pred = (1-pseudo_smooth)*pred + pseudo_smooth/args.class_num
         pseudo_labels[idx] = pred
     return pseudo_labels
 
