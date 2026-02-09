@@ -1,6 +1,14 @@
 import torch
 from torch import nn
 
+def mse_loss(o1:torch.Tensor, o2:torch.Tensor) -> torch.Tensor:
+    import torch.nn.functional as F
+    o1 = F.softmax(o1, dim=1)
+    o2 = F.softmax(o2, dim=1)
+    l2_norm = torch.sqrt(torch.sum(torch.pow(o1 - o2, 2.0), dim=1))
+    mse_loss = torch.mean(l2_norm, dim=0)
+    return mse_loss
+
 def SoftCrossEntropyLoss(logit: torch.Tensor, soft_pseudo_label: torch.Tensor) -> torch.Tensor:   # Checked and is correct
     """Pseudo-label cross-entropy loss uses this loss function"""
     import torch.nn.functional as F

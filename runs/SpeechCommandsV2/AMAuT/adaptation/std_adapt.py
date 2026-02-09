@@ -18,7 +18,12 @@ from lib.corruption import CorruptionMeta
 from lib.dataset import IdxSet, PseudoLabelSet
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.optimizer import build_optimizer, lr_scheduler
+from lib.loss import mse_loss
 from ..utils import build_model, load_weight, mlt_inference
+
+def clsf_rate(min_val:float, turn_epoch:int, epoch:int) -> float:
+    import math
+    return min_val + ((1-min_val)/(1+math.exp(epoch - turn_epoch)))
 
 def student_accu_analyzing(
     args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, corruption_types:list[str],
@@ -163,6 +168,7 @@ if __name__ == '__main__':
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.arch = 'AMAuT'
     args.elect_weights = json.loads(args.elect_weights)
+    # args.clsf_weights = {"WHN":1.0, "ENQ":1.0, "END1":.8, "END2":.8, "ENSC":1.0, "PSH":1.0, "TST":.1}
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.STUDENT_ADAPTATION)
     make_unless_exits(args.output_path)
     torch.backends.cudnn.benchmark = True
@@ -247,6 +253,7 @@ if __name__ == '__main__':
         aut.train(); clsf.train()
         for adpt_data in tqdm(adpt_loader):
             labels = adpt_data[-1].to(args.device)
+            output_cache = []
             for i in range(len(adpt_data)-1):
                 features = adpt_data[i].to(args.device)
 
@@ -254,11 +261,22 @@ if __name__ == '__main__':
 
                 # clsf_loss
                 clsf_loss = (-labels * outputs).sum(dim=1) # cross-entropy loss
-                clsf_loss = clsf_loss.mean()
+                clsf_loss = clsf_loss.mean() * args.elect_weights[corruption_types[i]]
                 if i == 0:
                     ttl_loss = clsf_loss
                 else: 
                     ttl_loss += clsf_loss
+                output_cache.append(outputs)
+            ttl_loss = ttl_loss
+            # cst_loss
+            for i in range(len(output_cache)):
+                if i == 0: mean_outputs = torch.from_numpy(output_cache[i].detach().cpu().numpy())
+                else: mean_outputs += torch.from_numpy(output_cache[i].detach().cpu().numpy())
+            mean_outputs = (mean_outputs/len(output_cache)).to(args.device)
+            for i in range(len(output_cache)):
+                if i==0: cst_loss = mse_loss(o1=output_cache[i], o2=mean_outputs)
+                else: cst_loss += mse_loss(o1=output_cache[i], o2=mean_outputs)
+            ttl_loss += 0.2 * cst_loss
             optimizer.zero_grad()
             ttl_loss.backward()
             optimizer.step()

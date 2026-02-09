@@ -15,4 +15,4 @@ python -m runs.SpeechCommandsV2.AMAuT.adaptation.std_adapt --dataset 'SpeechComm
     --corruption_level 'L2' --max_epoch 20 --lr '1e-4' --lr_momentum 0.75 \
     --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":1.3, "END2":1.3, "ENSC":1.0, "PSH":1.0, "TST":1.5}' \
     --orig_wght_pth $BASE_PATH'/result/SpeechCommandsV2/AMAuT/train' \
-    --adpt_wght_path './result/SpeechCommandsV2/AMAuT/Teach-Adapt'
+    --adpt_wght_path './result/SpeechCommandsV2/AMAuT/Teach-Adapt' --wandb
