@@ -253,7 +253,6 @@ if __name__ == '__main__':
         aut.train(); clsf.train()
         for adpt_data in tqdm(adpt_loader):
             labels = adpt_data[-1].to(args.device)
-            output_cache = []
             for i in range(len(adpt_data)-1):
                 features = adpt_data[i].to(args.device)
 
@@ -266,17 +265,6 @@ if __name__ == '__main__':
                     ttl_loss = clsf_loss
                 else: 
                     ttl_loss += clsf_loss
-                output_cache.append(outputs)
-            ttl_loss = ttl_loss
-            # cst_loss
-            for i in range(len(output_cache)):
-                if i == 0: mean_outputs = torch.from_numpy(output_cache[i].detach().cpu().numpy())
-                else: mean_outputs += torch.from_numpy(output_cache[i].detach().cpu().numpy())
-            mean_outputs = (mean_outputs/len(output_cache)).to(args.device)
-            for i in range(len(output_cache)):
-                if i==0: cst_loss = mse_loss(o1=output_cache[i], o2=mean_outputs)
-                else: cst_loss += mse_loss(o1=output_cache[i], o2=mean_outputs)
-            ttl_loss += 0.2 * cst_loss
             optimizer.zero_grad()
             ttl_loss.backward()
             optimizer.step()
