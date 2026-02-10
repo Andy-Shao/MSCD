@@ -125,11 +125,10 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
         pred = pred_cache[i]
         max_val, max_pos = torch.max(pred, dim=0)
         pred = torch.eye(args.class_num)[max_pos]
-        # if args.pseudo_threshold > max_val:
-        #     pseudo_smooth = args.lw_def_smth
-        # else:
-        #     pseudo_smooth = args.hi_def_smth
-        pseudo_smooth = .1
+        if args.pseudo_threshold > max_val:
+            pseudo_smooth = args.lw_def_smth
+        else:
+            pseudo_smooth = args.hi_def_smth
         pred = (1-pseudo_smooth)*pred + pseudo_smooth/args.class_num
         pseudo_labels[idx] = pred
     return pseudo_labels
