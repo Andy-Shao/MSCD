@@ -125,10 +125,11 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
         pred = pred_cache[i]
         max_val, max_pos = torch.max(pred, dim=0)
         pred = torch.eye(args.class_num)[max_pos]
-        if args.pseudo_threshold > max_val:
-            pseudo_smooth = args.lw_def_smth
-        else:
-            pseudo_smooth = args.hi_def_smth
+        # if args.pseudo_threshold > max_val:
+        #     pseudo_smooth = args.lw_def_smth
+        # else:
+        #     pseudo_smooth = args.hi_def_smth
+        pseudo_smooth = .1
         pred = (1-pseudo_smooth)*pred + pseudo_smooth/args.class_num
         pseudo_labels[idx] = pred
     return pseudo_labels
@@ -262,8 +263,9 @@ if __name__ == '__main__':
                 outputs, _ = clsf(aut(features)[0])
 
                 # clsf_loss
-                clsf_loss = (-labels * outputs).sum(dim=1) # cross-entropy loss
-                clsf_loss = clsf_loss.mean() * (1/args.elect_weights[corruption_types[i]])
+                clsf_loss = (-labels * nn.functional.log_softmax(outputs, dim=1)).sum(dim=1) # cross-entropy loss
+                # clsf_loss = clsf_loss.mean() * (1/args.elect_weights[corruption_types[i]])
+                clsf_loss = clsf_loss.mean()
                 if i == 0:
                     ttl_loss = clsf_loss
                 else: 
