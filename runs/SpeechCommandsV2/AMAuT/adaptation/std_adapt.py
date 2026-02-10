@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torchaudio.transforms import MelSpectrogram
 
 from lib import constants
-from lib.utils import make_unless_exits, print_argparse, indexes2oneHot, index2oneHot
+from lib.utils import make_unless_exits, print_argparse, indexes2oneHot
 from lib.spSet import SpeechCommandsV2C
 from lib.corruption import CorruptionMeta
 from lib.dataset import IdxSet, PseudoLabelSet
@@ -30,8 +30,6 @@ def student_accu_analyzing(
     data_tfs:list[nn.Module], step:int, logger
 ) -> float:
     print('Adapataion set accuracy analyzing...')
-    ttl_corrs, ttl_sizes = {it: 0. for it in corruption_types}, {it: 0. for it in corruption_types}
-    local_accus = {}
     adpt_set = SpeechCommandsV2C(
         root_path=args.adpt_set_path, corruption_level=args.corruption_level, 
         corruption_type=corruption_types, data_tf=data_tfs
@@ -40,14 +38,14 @@ def student_accu_analyzing(
         dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
         num_workers=args.num_workers
     )
-    global_accu, local_accus = mlt_inference(
+    adpt_global_accu, adpt_local_accus = mlt_inference(
         args=args, corruption_types=corruption_types, aut=aut, clsf=clsf, data_loader=adpt_loader
     )
-    print('Adaptation local accuracies are:', {key: round(value, ndigits=4) for key, value in local_accus.items()})
-    print(f'Adaptation global accuracy is: {global_accu:.4f}')
-    for k,v in local_accus.items():
+    print('Adaptation local accuracies are:', {key: round(value, ndigits=4) for key, value in adpt_local_accus.items()})
+    print(f'Adaptation global accuracy is: {adpt_global_accu:.4f}')
+    for k,v in adpt_local_accus.items():
         logger.log(data={f'Adaptation/{k} accuracy': v}, step=step)
-    logger.log(data={f'Adaptation/Global accuracy': global_accu}, step=step)
+    logger.log(data={f'Adaptation/Global accuracy': adpt_global_accu}, step=step)
 
     print('Evaluation set accuracy analyzing...')
     eval_set = SpeechCommandsV2C(
@@ -66,7 +64,7 @@ def student_accu_analyzing(
     for k,v in local_accus.items():
         logger.log(data={f'Evaluation/{k} accuracy': v}, step=step)
     logger.log(data={f'Evaluation/Global accuracy': global_accu}, step=step)
-    return global_accu
+    return adpt_global_accu
 
 def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tfs:list[nn.Module]):
     print('Loading all teachers...')
@@ -125,10 +123,12 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
     for i in tqdm(range(len(idx_cache)), total=len(idx_cache)):
         idx = int(idx_cache[i].item())
         pred = pred_cache[i]
-        pseudo_smooth = .1
-        pseudo_threshold = 4.5
         max_val, max_pos = torch.max(pred, dim=0)
         pred = torch.eye(args.class_num)[max_pos]
+        if args.pseudo_threshold > max_val:
+            pseudo_smooth = args.lw_def_smth
+        else:
+            pseudo_smooth = args.hi_def_smth
         pred = (1-pseudo_smooth)*pred + pseudo_smooth/args.class_num
         pseudo_labels[idx] = pred
     return pseudo_labels
@@ -146,6 +146,9 @@ if __name__ == '__main__':
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
     ap.add_argument('--elect_weights', type=str)
     ap.add_argument('--max_epoch', type=int, default=20)
+    ap.add_argument('--pseudo_threshold', type=float, default=6.0)
+    ap.add_argument('--hi_def_smth', type=float, default=.1)
+    ap.add_argument('--lw_def_smth', type=float, default=.2)
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
