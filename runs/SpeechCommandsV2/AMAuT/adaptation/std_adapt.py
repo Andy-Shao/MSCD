@@ -172,7 +172,6 @@ if __name__ == '__main__':
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.arch = 'AMAuT'
     args.elect_weights = json.loads(args.elect_weights)
-    # args.clsf_weights = {"WHN":1.0, "ENQ":1.0, "END1":.8, "END2":.8, "ENSC":1.0, "PSH":1.0, "TST":.1}
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.STUDENT_ADAPTATION)
     make_unless_exits(args.output_path)
     torch.backends.cudnn.benchmark = True
@@ -264,7 +263,6 @@ if __name__ == '__main__':
 
                 # clsf_loss
                 clsf_loss = (-labels * nn.functional.log_softmax(outputs, dim=1)).sum(dim=1) # cross-entropy loss
-                # clsf_loss = clsf_loss.mean() * (1/args.elect_weights[corruption_types[i]])
                 clsf_loss = clsf_loss.mean()
                 if i == 0:
                     ttl_loss = clsf_loss
