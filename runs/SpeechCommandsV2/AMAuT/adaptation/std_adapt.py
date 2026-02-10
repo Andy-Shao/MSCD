@@ -260,7 +260,7 @@ if __name__ == '__main__':
 
                 # clsf_loss
                 clsf_loss = (-labels * outputs).sum(dim=1) # cross-entropy loss
-                clsf_loss = clsf_loss.mean() * args.elect_weights[corruption_types[i]]
+                clsf_loss = clsf_loss.mean() * (1/args.elect_weights[corruption_types[i]])
                 if i == 0:
                     ttl_loss = clsf_loss
                 else: 
