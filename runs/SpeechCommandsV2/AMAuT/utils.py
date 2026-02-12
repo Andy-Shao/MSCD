@@ -65,7 +65,7 @@ def build_model(args:argparse.Namespace) -> tuple[FCETransform, AudioClassifier]
     return auTmodel, clsmodel
 
 def __cal_model_path__(args:argparse.Namespace, mode='origin', metaInfo:CorruptionMeta=None, root_path:str=None) -> tuple[str, str]:
-    assert mode in ['origin', 'adaptation'], 'No support'
+    assert mode in ['origin', 'adaptation', constants.STUDENT_ADAPTATION], 'No support'
     if mode == 'origin':
         if root_path is None: root_path = args.orig_wght_pth
         a_p = os.path.join(root_path, f'aut-{constants.dataset_dic[args.dataset]}.pt')
@@ -74,6 +74,9 @@ def __cal_model_path__(args:argparse.Namespace, mode='origin', metaInfo:Corrupti
         if root_path is None: root_path = args.adpt_wght_path
         a_p = os.path.join(root_path, f'aut-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
         c_p = os.path.join(root_path, f'clsf-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
+    elif mode == constants.STUDENT_ADAPTATION:
+        a_p = os.path.join(root_path, f'aut-std-{constants.dataset_dic[args.dataset]}.pt')
+        c_p = os.path.join(root_path, f'clsf-std-{constants.dataset_dic[args.dataset]}.pt')
     return a_p, c_p
 
 def load_weight(

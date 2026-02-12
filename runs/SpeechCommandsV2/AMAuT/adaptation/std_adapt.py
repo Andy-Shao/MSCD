@@ -18,8 +18,7 @@ from lib.corruption import CorruptionMeta
 from lib.dataset import IdxSet, PseudoLabelSet
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.optimizer import build_optimizer, lr_scheduler
-from lib.loss import mse_loss
-from ..utils import build_model, load_weight, mlt_inference
+from ..utils import build_model, load_weight, mlt_inference, store_weight
 
 def clsf_rate(min_val:float, turn_epoch:int, epoch:int) -> float:
     import math
@@ -248,7 +247,11 @@ if __name__ == '__main__':
                 FrequenceTokenTransformer()
             ])] * len(corruption_types), logger=wandb_run
         )
-        ## TODO: if it is the maximum accuracy then store it.
+        if max_accu <= accu:
+            max_accu = accu
+            store_weight(
+                args=args, aut=aut, clsf=clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path
+            )
         
         if epoch >= args.max_epoch: break
         print('Adaptating...')
