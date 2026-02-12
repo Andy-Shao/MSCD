@@ -1,10 +1,10 @@
-# Label-Free Multi-Teacher Distillation (LFMuTeD) for Test-Time Audio Adaptation
+# Multi-Shift Consensus Distillation (MSCD): Robust Test-Time Adaptation via Elected Pseudo-Labels
 ## Software Environment
 + Docker image: nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
 + GPU: RTX 5090 / RTX PRO 6000 Blackwell Workstation
 ```shell
-conda create --name LFMuTeD python==3.13.9 -y
-conda activate LFMuTeD
+conda create --name MSCD python==3.13.9 -y
+conda activate MSCD
 # CUDA 12.8
 pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 pip install scikit-learn==1.7.1
