@@ -71,10 +71,11 @@ def __cal_model_path__(args:argparse.Namespace, mode='origin', metaInfo:Corrupti
         a_p = os.path.join(root_path, f'aut-{constants.dataset_dic[args.dataset]}.pt')
         c_p = os.path.join(root_path, f'clsf-{constants.dataset_dic[args.dataset]}.pt')
     elif mode == 'adaptation':
-        if root_path is None: root_path = args.adpt_wght_path
+        if root_path is None: root_path = args.adpt_wght_pth
         a_p = os.path.join(root_path, f'aut-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
         c_p = os.path.join(root_path, f'clsf-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
     elif mode == constants.STUDENT_ADAPTATION:
+        if root_path is None: root_path = args.std_adpt_wght_pth
         a_p = os.path.join(root_path, f'aut-std-{constants.dataset_dic[args.dataset]}.pt')
         c_p = os.path.join(root_path, f'clsf-std-{constants.dataset_dic[args.dataset]}.pt')
     return a_p, c_p

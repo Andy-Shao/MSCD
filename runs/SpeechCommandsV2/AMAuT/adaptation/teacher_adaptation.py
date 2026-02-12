@@ -187,7 +187,7 @@ if __name__ == '__main__':
     ap.add_argument('--num_workers', type=int, default=16)
     ap.add_argument('--output_path', type=str, default='./result')
     ap.add_argument('--batch_size', type=int, default=64)
-    ap.add_argument('--adpt_wght_path', type=str)
+    ap.add_argument('--adpt_wght_pth', type=str)
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
     ap.add_argument('--elect_weights', type=str)
     ap.add_argument('--num_of_shft', type=int, default=3, help='maximum number of shifting teachers')
