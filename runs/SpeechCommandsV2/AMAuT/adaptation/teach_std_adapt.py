@@ -3,11 +3,61 @@ import os
 import json
 import numpy as np
 import random
+from tqdm import tqdm
 
 import torch 
+from torch import nn
+from torch.utils.data import DataLoader
 
 from lib import constants
 from lib.utils import make_unless_exits, print_argparse
+from lib.corruption import CorruptionMeta
+from lib.spSet import SpeechCommandsV2C
+from ..utils import build_model, load_weight, mlt_inference, teach_inference
+
+def accuracy_evaluate(
+    args:argparse.Namespace, teach_auts:list[nn.Module], teach_clsfs:list[nn.Module], std_aut:nn.Module,
+    std_clsf:nn.Module, corruption_types:list[str], data_tfs:list[nn.Module]
+) -> tuple[float, float]:
+    print('Adaptation accuracy evaluation')
+    sc2c_set = SpeechCommandsV2C(
+        root_path=args.adpt_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types,
+        data_tf=data_tfs
+    )
+    sc2c_loader = DataLoader(
+        dataset=sc2c_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
+        num_workers=args.num_workers
+    )
+    print('Student evaluation...')
+    adpt_std_global_accu, adpt_std_local_accus = mlt_inference(
+        args=args, corruption_types=corruption_types, aut=std_aut, clsf=std_clsf, data_loader=sc2c_loader
+    )
+    print('Teachers evaluation...')
+    adpt_teach_global_accu, adpt_teach_accus = teach_inference(
+        args=args, corruption_types=corruption_types, auts=teach_auts, clsfs=teach_clsfs, 
+        data_loader=sc2c_loader
+    )
+
+    print('Evaluation accuracy evaluation')
+    sc2c_set = SpeechCommandsV2C(
+        root_path=args.eval_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types,
+        data_tf=data_tfs
+    )
+    sc2c_loader = DataLoader(
+        dataset=sc2c_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
+        num_workers=args.num_workers
+    )
+    print('Student evaluation...')
+    std_global_accu, std_local_accus = mlt_inference(
+        args=args, corruption_types=corruption_types, aut=std_aut, clsf=std_clsf, data_loader=sc2c_loader
+    )
+    print('Teachers evaluation')
+    teach_global_accu, teach_accus = teach_inference(
+        args=args, corruption_types=corruption_types, auts=teach_auts, clsfs=teach_clsfs,
+        data_loader=sc2c_loader
+    )
+
+    return adpt_std_global_accu, adpt_teach_global_accu
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -58,3 +108,29 @@ if __name__ == '__main__':
 
     print_argparse(args)
     ##########################################
+    corruption_types=['WHN', 'ENQ', 'END1', 'END2', 'ENSC', 'PSH', 'TST']
+    args.n_mels=80
+    n_fft=1024
+    win_length=400
+    hop_length=155
+    mel_scale='slaney'
+    args.target_length=104
+
+    print('Initialization...')
+    teach_auts, teach_clsf = [], []
+    std_aut, std_clsf = build_model(args=args)
+    load_weight(args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION,)
+    for corruption_type in tqdm(corruption_types):
+        teach_aut, teach_clsf = build_model(args=args)
+        load_weight(
+            args=args, aut=teach_aut, clsf=teach_clsf, mode='adaptation', 
+            metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level)
+        )
+
+    print('Teacher-Student Adaptation')
+    max_accu = 0.
+    for epoch in range(args.max_epoch+1):
+        print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
+        print('Inferencing...')
+
+    print('END!')
