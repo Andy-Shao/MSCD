@@ -8,11 +8,13 @@ from tqdm import tqdm
 import torch 
 from torch import nn
 from torch.utils.data import DataLoader
+from torchaudio.transforms import MelSpectrogram
 
 from lib import constants
 from lib.utils import make_unless_exits, print_argparse
 from lib.corruption import CorruptionMeta
 from lib.spSet import SpeechCommandsV2C
+from lib.component import Components, FrequenceTokenTransformer, AmplitudeToDB
 from ..utils import build_model, load_weight, mlt_inference, teach_inference
 
 def accuracy_evaluate(
@@ -32,11 +34,15 @@ def accuracy_evaluate(
     adpt_std_global_accu, adpt_std_local_accus = mlt_inference(
         args=args, corruption_types=corruption_types, aut=std_aut, clsf=std_clsf, data_loader=sc2c_loader
     )
+    print(f'Student adaptation global accuracy is: {adpt_std_global_accu:.4f}')
+    print('Student adaptation local accuracies are:', {k: round(v, ndigits=4) for k,v in adpt_std_local_accus.items()})
     print('Teachers evaluation...')
     adpt_teach_global_accu, adpt_teach_accus = teach_inference(
         args=args, corruption_types=corruption_types, auts=teach_auts, clsfs=teach_clsfs, 
         data_loader=sc2c_loader
     )
+    print(f'Teachers adaptation global accuracy is: {adpt_teach_global_accu:.4f}')
+    print('Teachers adaptation accuracies are:', {k:round(v, ndigits=4) for k,v in adpt_teach_accus.items()})
 
     print('Evaluation accuracy evaluation')
     sc2c_set = SpeechCommandsV2C(
@@ -51,11 +57,15 @@ def accuracy_evaluate(
     std_global_accu, std_local_accus = mlt_inference(
         args=args, corruption_types=corruption_types, aut=std_aut, clsf=std_clsf, data_loader=sc2c_loader
     )
+    print(f'Student evaluation global accuracy is: {std_global_accu:.4f}')
+    print('Student evaluation local accuracies are:', {k:round(v, ndigits=4) for k,v in std_local_accus.items()})
     print('Teachers evaluation')
     teach_global_accu, teach_accus = teach_inference(
         args=args, corruption_types=corruption_types, auts=teach_auts, clsfs=teach_clsfs,
         data_loader=sc2c_loader
     )
+    print(f'Teachers evaluation global accuracy is : {teach_global_accu:.4f}')
+    print('Teachers evaluation accuracies are:', {k:round(v, ndigits=4) for k,v in teach_accus.items})
 
     return adpt_std_global_accu, adpt_teach_global_accu
 
@@ -117,7 +127,7 @@ if __name__ == '__main__':
     args.target_length=104
 
     print('Initialization...')
-    teach_auts, teach_clsf = [], []
+    teach_auts, teach_clsfs = [], []
     std_aut, std_clsf = build_model(args=args)
     load_weight(args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION,)
     for corruption_type in tqdm(corruption_types):
@@ -126,11 +136,25 @@ if __name__ == '__main__':
             args=args, aut=teach_aut, clsf=teach_clsf, mode='adaptation', 
             metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level)
         )
+        teach_auts.append(teach_aut)
+        teach_clsfs.append(teach_clsf)
 
     print('Teacher-Student Adaptation')
     max_accu = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         print('Inferencing...')
+        adpt_std_global_accu, adpt_teach_global_accu = accuracy_evaluate(
+            args=args, teach_auts=teach_auts, teach_clsfs=teach_clsfs, std_aut=std_aut, std_clsf=std_clsf,
+            corruption_types=corruption_types, data_tfs=[Components(transforms=[
+                MelSpectrogram(
+                    sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
+                    n_mels=args.n_mels, mel_scale=mel_scale
+                ),
+                AmplitudeToDB(top_db=80., max_out=2.),
+                FrequenceTokenTransformer()
+            ])] * len(corruption_types)
+        )
+        exit()
 
     print('END!')

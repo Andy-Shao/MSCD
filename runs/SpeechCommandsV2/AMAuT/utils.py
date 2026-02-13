@@ -14,7 +14,7 @@ from AuT.lib.model import FCETransform, AudioClassifier
 def teach_inference(
     args:argparse.Namespace, corruption_types:list[str], auts:list[nn.Module], clsfs:list[nn.Module],
     data_loader:DataLoader
-) -> dict[str, float]:
+) -> tuple[float, dict[str, float]]:
     for aut in auts: aut.eval()
     for clsf in clsfs: clsf.eval()
     ttl_corrs, ttl_sizes = {it: 0. for it in corruption_types}, {it: 0. for it in corruption_types}
@@ -25,7 +25,7 @@ def teach_inference(
             corruption_type = corruption_types[i]
             features = data[i].to(args.device)
             aut = auts[i]
-            clsf = clsf[i]
+            clsf = clsfs[i]
 
             with torch.inference_mode():
                 outputs, _ = clsf(aut(features)[0])
