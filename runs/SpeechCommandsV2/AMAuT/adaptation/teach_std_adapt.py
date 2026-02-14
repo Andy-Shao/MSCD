@@ -15,35 +15,15 @@ from lib.utils import make_unless_exits, print_argparse
 from lib.corruption import CorruptionMeta
 from lib.spSet import SpeechCommandsV2C
 from lib.component import Components, FrequenceTokenTransformer, AmplitudeToDB
-from ..utils import build_model, load_weight, mlt_inference, teach_inference
+from ..utils import build_model, load_weight
 
 def accuracy_evaluate(
     args:argparse.Namespace, teach_auts:list[nn.Module], teach_clsfs:list[nn.Module], std_aut:nn.Module,
     std_clsf:nn.Module, corruption_types:list[str], data_tfs:list[nn.Module]
 ) -> tuple[float, float]:
-    print('Adaptation accuracy evaluation')
-    sc2c_set = SpeechCommandsV2C(
-        root_path=args.adpt_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types,
-        data_tf=data_tfs
-    )
-    sc2c_loader = DataLoader(
-        dataset=sc2c_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
-        num_workers=args.num_workers
-    )
-    print('Student evaluation...')
-    adpt_std_global_accu, adpt_std_local_accus = mlt_inference(
-        args=args, corruption_types=corruption_types, aut=std_aut, clsf=std_clsf, data_loader=sc2c_loader
-    )
-    print(f'Student adaptation global accuracy is: {adpt_std_global_accu:.4f}')
-    print('Student adaptation local accuracies are:', {k: round(v, ndigits=4) for k,v in adpt_std_local_accus.items()})
-    print('Teachers evaluation...')
-    adpt_teach_global_accu, adpt_teach_accus = teach_inference(
-        args=args, corruption_types=corruption_types, auts=teach_auts, clsfs=teach_clsfs, 
-        data_loader=sc2c_loader
-    )
-    print(f'Teachers adaptation global accuracy is: {adpt_teach_global_accu:.4f}')
-    print('Teachers adaptation accuracies are:', {k:round(v, ndigits=4) for k,v in adpt_teach_accus.items()})
-
+    for teach_aut in teach_auts: teach_aut.eval()
+    for teach_clsf in teach_clsfs: teach_clsf.eval()
+    std_aut.eval(); std_clsf.eval()
     print('Evaluation accuracy evaluation')
     sc2c_set = SpeechCommandsV2C(
         root_path=args.eval_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types,
@@ -53,21 +33,37 @@ def accuracy_evaluate(
         dataset=sc2c_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
         num_workers=args.num_workers
     )
-    print('Student evaluation...')
-    std_global_accu, std_local_accus = mlt_inference(
-        args=args, corruption_types=corruption_types, aut=std_aut, clsf=std_clsf, data_loader=sc2c_loader
-    )
+    teach_local_corrs, std_local_corrs = {it:0. for it in corruption_types}, {it:0. for it in corruption_types}
+    teach_local_sizes, std_local_sizes = {it:0 for it in corruption_types}, {it:0 for it in corruption_types}
+    for data in tqdm(sc2c_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            features = data[i].to(args.device)
+            corruption_type = corruption_types[i]
+            with torch.inference_mode():
+                outputs, _ = std_clsf(std_aut(features)[0])
+                _, preds = torch.max(outputs.detach().cpu(), dim=1)
+            std_local_corrs[corruption_type] += (preds==labels).sum().item()
+            std_local_sizes[corruption_type] += labels.shape[0]
+
+            teach_aut, teach_clsf = teach_auts[i], teach_clsfs[i]
+            with torch.inference_mode():
+                outputs, _ = teach_clsf(teach_aut(features)[0])
+                _, preds = torch.max(outputs.detach().cpu(), dim=1)
+            teach_local_corrs[corruption_type] += (preds==labels).sum().item()
+            teach_local_sizes[corruption_type] += labels.shape[0]
+    teach_local_accus, std_local_accus = {}, {}
+    for corruption_type in corruption_types:
+        teach_local_accus[corruption_type] = teach_local_corrs[corruption_type]/teach_local_sizes[corruption_type]
+        std_local_accus[corruption_type] = std_local_corrs[corruption_type]/std_local_sizes[corruption_type]
+    teach_global_accu = sum([v for k,v in teach_local_corrs.items()])/sum([v for k,v in teach_local_sizes.items()])
+    std_global_accu = sum([v for k,v in std_local_corrs.items()])/sum([v for k,v in std_local_sizes.items()])
+
     print(f'Student evaluation global accuracy is: {std_global_accu:.4f}')
     print('Student evaluation local accuracies are:', {k:round(v, ndigits=4) for k,v in std_local_accus.items()})
-    print('Teachers evaluation')
-    teach_global_accu, teach_accus = teach_inference(
-        args=args, corruption_types=corruption_types, auts=teach_auts, clsfs=teach_clsfs,
-        data_loader=sc2c_loader
-    )
-    print(f'Teachers evaluation global accuracy is : {teach_global_accu:.4f}')
-    print('Teachers evaluation accuracies are:', {k:round(v, ndigits=4) for k,v in teach_accus.items})
-
-    return adpt_std_global_accu, adpt_teach_global_accu
+    print(f'Teacher evaluation global accuracy is: {teach_global_accu:.4f}')
+    print('Teacher evaluation local accuracies are:', {k:round(v, ndigits=4) for k,v in teach_local_accus.items()})
+    return teach_global_accu, std_global_accu
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -144,7 +140,7 @@ if __name__ == '__main__':
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         print('Inferencing...')
-        adpt_std_global_accu, adpt_teach_global_accu = accuracy_evaluate(
+        accuracy_evaluate(
             args=args, teach_auts=teach_auts, teach_clsfs=teach_clsfs, std_aut=std_aut, std_clsf=std_clsf,
             corruption_types=corruption_types, data_tfs=[Components(transforms=[
                 MelSpectrogram(

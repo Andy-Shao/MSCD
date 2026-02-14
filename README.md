@@ -10,7 +10,6 @@ pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https
 pip install scikit-learn==1.7.1
 pip install tqdm==4.67.1
 pip install pandas==2.3.1
-# pip install pyrnnoise==0.4.3
 pip install matplotlib==3.10.3
 pip install jupyter==1.1.1
 pip install soundfile==0.13.1
