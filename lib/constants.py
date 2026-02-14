@@ -1,9 +1,8 @@
-PROJECT_TITLE='PANS'
+PROJECT_TITLE='MSCD'
 TRAIN_TAG='Train'
 TTA_TAG='TTA'
 TEACHER_ADAPTATION='Teach-Adapt'
 STUDENT_ADAPTATION='Std-Adapt'
-TEACHER_STUDENT_ADAPTATION='TeachStd-Adapt'
 
 dataset_dic = {
     'SpeechCommandsV2': 'SC2',
