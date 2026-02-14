@@ -95,16 +95,16 @@ class GpuMultiTFDataset(Dataset):
         return tuple(ret)
 
 class Subset(Dataset):
-    def __init__(self, dataset: Dataset, label_list:list[int]):
+    def __init__(self, dataset: Dataset, id_list:list[int]):
         super().__init__()
         self.dataset = dataset
-        self.label_list = label_list
+        self.id_list = id_list
     
     def __len__(self):
-        return len(self.label_list)
+        return len(self.id_list)
 
     def __getitem__(self, index):
-        return self.dataset[self.label_list[index]]
+        return self.dataset[self.id_list[index]]
 
 
 class TransferDataset(Dataset):

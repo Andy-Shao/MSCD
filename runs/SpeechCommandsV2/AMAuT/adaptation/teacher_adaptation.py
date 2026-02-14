@@ -326,7 +326,7 @@ if __name__ == '__main__':
                 ])
             )
             adpt_set = PseudoLabelSet(dataset=adpt_set, label_position=1, pseudo_labels=worst_list[corruption_type])
-            adpt_set = Subset(dataset=adpt_set, label_list=list(worst_list[corruption_type].keys()))
+            adpt_set = Subset(dataset=adpt_set, id_list=list(worst_list[corruption_type].keys()))
 
             adpt_loader = DataLoader(
                 dataset=adpt_set, batch_size=args.batch_size, shuffle=True, drop_last=False, 

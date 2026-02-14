@@ -15,9 +15,11 @@ from lib import constants
 from lib.utils import make_unless_exits, print_argparse, indexes2oneHot
 from lib.corruption import CorruptionMeta
 from lib.spSet import SpeechCommandsV2C
-from lib.dataset import IdxSet
+from lib.dataset import IdxSet, PseudoLabelSet, Subset
 from lib.component import Components, FrequenceTokenTransformer, AmplitudeToDB
 from lib.adaptation import collect_worst_item
+from lib.optimizer import build_optimizer, lr_scheduler
+from lib.loss import CrossEntropyLabelSmooth
 from ..utils import build_model, load_weight
 
 def pseudo_labeling(
@@ -172,8 +174,8 @@ if __name__ == '__main__':
     ap.add_argument('--lr_gamma', type=int, default=10)
     ap.add_argument('--lr_threshold', type=int, default=1)
     ap.add_argument('--lr_momentum', type=float, default=.9)
-    ap.add_argument('--aut_lr_decay', type=float, default=1.0)
-    ap.add_argument('--clsf_lr_decay', type=float, default=1.0)
+    ap.add_argument('--teach_aut_lr_decay', type=float, default=1.0)
+    ap.add_argument('--teach_clsf_lr_decay', type=float, default=1.0)
     ap.add_argument('--interval', type=int, default=1, help='interval number')
 
     ap.add_argument('--wandb', action='store_true')
@@ -218,6 +220,8 @@ if __name__ == '__main__':
     teach_auts, teach_clsfs = [], []
     std_aut, std_clsf = build_model(args=args)
     load_weight(args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION,)
+    teach_optimizers = []
+    teach_loss_fun = CrossEntropyLabelSmooth(num_classes=args.class_num, use_gpu=torch.cuda.is_available())
     for corruption_type in tqdm(corruption_types):
         teach_aut, teach_clsf = build_model(args=args)
         load_weight(
@@ -226,6 +230,11 @@ if __name__ == '__main__':
         )
         teach_auts.append(teach_aut)
         teach_clsfs.append(teach_clsf)
+        optimizer = build_optimizer(
+            lr=args.lr, auT=teach_aut, auC=teach_clsf, auT_decay=args.teach_aut_lr_decay, 
+            auC_decay=args.teach_clsf_lr_decay
+        )
+        teach_optimizers.append(optimizer)
 
     print('Teacher-Student Adaptation')
     max_accu = 0.
@@ -249,10 +258,51 @@ if __name__ == '__main__':
             corruption_types=corruption_types, data_tfs=data_tfs
         )
         # TODO: store the highest accuracy
-        collect_worst_item(
+        worst_list, shft_typs = collect_worst_item(
             args=args, corruption_types=corruption_types, idx_cache=idxs, pred_cache=final_pred, 
             output_cache=output_cache, step=epoch, logger=wandb_run
         )
-        exit()
+        if epoch == args.max_epoch: break
+        print('Adapting...')
+        for teach_aut in teach_auts: teach_aut.train()
+        for teach_clsf in teach_clsfs: teach_clsf.train()
+        std_aut.train(); std_clsf.train()
+        for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
+            # teacher adaptation
+            sc2c_set = SpeechCommandsV2C(
+                root_path=args.adpt_set_path, corruption_level=args.corruption_level, 
+                corruption_type=corruption_type, data_tf=data_tfs[0]
+            )
+            sc2c_set = PseudoLabelSet(dataset=sc2c_set, pseudo_labels=worst_list[corruption_type], label_position=1)
+            sc2c_set = Subset(dataset=sc2c_set, id_list=list(worst_list[corruption_type].keys()))
+            sc2c_loader = DataLoader(
+                dataset=sc2c_set, batch_size=args.batch_size, shuffle=True, drop_last=False, 
+                num_workers=args.num_workers
+            )
+            teach_aut, teach_clsf = teach_auts[idx], teach_clsfs[idx]
+            teach_optimizer = teach_optimizers[idx]
 
+            for features, labels in sc2c_loader:
+                if corruption_type not in shft_typs: break
+                features, labels = features.to(args.device), labels.to(args.device)  
+                if features.shape[0] == 1:
+                    features = features.repeat(4, 1, 1)
+                    labels = labels.repeat(4, 1) 
+
+                outputs, _ = teach_clsf(teach_aut(features)[0])
+                _, preds = torch.max(labels, dim=1)
+                loss = teach_loss_fun(outputs, preds)
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+            if epoch % args.interval == 0:
+                lr_scheduler(
+                    optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
+                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+                )
+
+        exit()
+    wandb.finish()
     print('END!')
