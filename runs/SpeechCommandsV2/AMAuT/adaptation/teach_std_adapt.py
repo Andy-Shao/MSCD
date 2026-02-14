@@ -4,6 +4,7 @@ import json
 import numpy as np
 import random
 from tqdm import tqdm
+import wandb
 
 import torch 
 from torch import nn
@@ -11,11 +12,93 @@ from torch.utils.data import DataLoader
 from torchaudio.transforms import MelSpectrogram
 
 from lib import constants
-from lib.utils import make_unless_exits, print_argparse
+from lib.utils import make_unless_exits, print_argparse, indexes2oneHot
 from lib.corruption import CorruptionMeta
 from lib.spSet import SpeechCommandsV2C
+from lib.dataset import IdxSet
 from lib.component import Components, FrequenceTokenTransformer, AmplitudeToDB
+from lib.adaptation import collect_worst_item
 from ..utils import build_model, load_weight
+
+def pseudo_labeling(
+    args:argparse.Namespace, teach_auts:list[nn.Module], teach_clsfs:list[nn.Module], std_aut:nn.Module,
+    std_clsf:nn.Module, corruption_types:list[str], data_tfs:list[nn.Module]
+):
+    for teach_aut in teach_auts: teach_aut.eval()
+    for teach_clsf in teach_clsfs: teach_clsf.eval()
+    std_aut.eval(); std_clsf.eval()
+    print('Pseudo labeling...')
+    sc2c_set = SpeechCommandsV2C(
+        root_path=args.adpt_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types, 
+        data_tf=data_tfs
+    )
+    sc2c_set = IdxSet(sc2c_set)
+    sc2c_loader = DataLoader(
+        dataset=sc2c_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
+        num_workers=args.num_workers
+    )
+    teach_local_corrs, std_local_corrs = {it:0. for it in corruption_types}, {it:0. for it in corruption_types}
+    teach_local_sizes, std_local_sizes = {it:0 for it in corruption_types}, {it:0 for it in corruption_types}
+    final_pred, idxs = [], []
+    output_cache = {}
+    ttl_corr, ttl_size = 0., 0.
+    for j, data in tqdm(enumerate(sc2c_loader), total=len(sc2c_loader)):
+        labels = data[-1]
+        for i in range(1, len(data)-1):
+            features = data[i].to(args.device)
+            corruption_type = corruption_types[i-1]
+            with torch.inference_mode():
+                outputs, _ = std_clsf(std_aut(features)[0])
+                outputs = outputs.detach().cpu()
+                _, preds = torch.max(outputs, dim=1)
+            std_local_corrs[corruption_type] += (preds==labels).sum().item()
+            std_local_sizes[corruption_type] += labels.shape[0]
+
+            preds = indexes2oneHot(labels=preds, class_num=args.class_num)
+            preds = preds * (1/len(corruption_type))
+            if i==1: pred_cache = preds
+            else: pred_cache = pred_cache + preds
+
+            teach_aut, teach_clsf = teach_auts[i-1], teach_clsfs[i-1]
+            with torch.inference_mode():
+                outputs, _ = teach_clsf(teach_aut(features)[0])
+                outputs = outputs.detach().cpu()
+                _, preds = torch.max(outputs, dim=1)
+            teach_local_corrs[corruption_type] += (preds==labels).sum().item()
+            teach_local_sizes[corruption_type] += labels.shape[0]
+            preds = indexes2oneHot(labels=preds, class_num=args.class_num)
+            preds = preds * args.elect_weights[corruption_type]
+            pred_cache = pred_cache + preds
+            if j == 0: output_cache[corruption_type] = [outputs]
+            else: output_cache[corruption_type].append(outputs)
+        _, pred_cache = torch.max(pred_cache, dim=1)
+        ttl_corr += (pred_cache==labels).sum().item()
+        ttl_size += labels.shape[0]
+        if j == 0:
+            final_pred = [pred_cache]
+            idxs = [data[0]]
+        else: 
+            final_pred.append(pred_cache)
+            idxs.append(data[0])
+    teach_local_accus, std_local_accus = {}, {}
+    for corruption_type in corruption_types:
+        teach_local_accus[corruption_type] = teach_local_corrs[corruption_type]/teach_local_sizes[corruption_type]
+        std_local_accus[corruption_type] = std_local_corrs[corruption_type]/std_local_sizes[corruption_type]
+    teach_global_accu = sum([v for k,v in teach_local_corrs.items()])/sum([v for k,v in teach_local_sizes.items()])
+    std_global_accu = sum([v for k,v in std_local_corrs.items()])/sum([v for k,v in std_local_sizes.items()])
+    pseudo_accu = ttl_corr/ttl_size
+    print(f'Pseudo_labeling accuracy is:{pseudo_accu:.4f}')
+    print(f'Student Adaptation global accuray is: {std_global_accu:.4f}')
+    print('Student Adaptation local accuracies are', {k:round(v, ndigits=4) for k,v in std_local_accus.items()})
+    print(f'Teacher Adaptation global accuracy is: {teach_global_accu:.4f}')
+    print('Teacher Adaptation local accuracies are', {k:round(v, ndigits=4) for k,v in teach_local_accus.items()})
+    final_pred = torch.concat(final_pred, dim=0)
+    idxs = torch.concat(idxs, dim=0)
+    tmp = {}
+    for k, v in output_cache.items():
+        tmp[k] = torch.concat(v, dim=0)
+    output_cache = tmp
+    return idxs, final_pred, output_cache, teach_global_accu, std_global_accu
 
 def accuracy_evaluate(
     args:argparse.Namespace, teach_auts:list[nn.Module], teach_clsfs:list[nn.Module], std_aut:nn.Module,
@@ -81,6 +164,8 @@ if __name__ == '__main__':
     ap.add_argument('--pseudo_threshold', type=float, default=6.0)
     ap.add_argument('--hi_def_smth', type=float, default=.1)
     ap.add_argument('--lw_def_smth', type=float, default=.2)
+    ap.add_argument('--num_of_shft', type=int, default=3, help='maximum number of shifting teachers')
+    ap.add_argument('--fail_coll_lim', type=int, default=3, help='maximum number of fail prediction be choosed in worst list')
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -114,6 +199,13 @@ if __name__ == '__main__':
 
     print_argparse(args)
     ##########################################
+    wandb_run = wandb.init(
+        project=f'{constants.PROJECT_TITLE}-{constants.TEACHER_ADAPTATION}', 
+        name=f'{constants.architecture_dic[args.arch]}-{constants.dataset_dic[args.dataset]}-{args.corruption_level}', 
+        mode='online' if args.wandb else 'disabled', 
+        config=args, tags=['Audio Classification', 'Teacher Adaptation', args.dataset]
+    )
+
     corruption_types=['WHN', 'ENQ', 'END1', 'END2', 'ENSC', 'PSH', 'TST']
     args.n_mels=80
     n_fft=1024
@@ -151,6 +243,15 @@ if __name__ == '__main__':
         accuracy_evaluate(
             args=args, teach_auts=teach_auts, teach_clsfs=teach_clsfs, std_aut=std_aut, std_clsf=std_clsf,
             corruption_types=corruption_types, data_tfs=data_tfs
+        )
+        idxs, final_pred, output_cache, teach_global_accu, std_global_accu = pseudo_labeling(
+            args=args, teach_auts=teach_auts, teach_clsfs=teach_clsfs, std_aut=std_aut, std_clsf=std_clsf, 
+            corruption_types=corruption_types, data_tfs=data_tfs
+        )
+        # TODO: store the highest accuracy
+        collect_worst_item(
+            args=args, corruption_types=corruption_types, idx_cache=idxs, pred_cache=final_pred, 
+            output_cache=output_cache, step=epoch, logger=wandb_run
         )
         exit()
 

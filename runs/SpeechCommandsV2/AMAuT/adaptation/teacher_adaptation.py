@@ -6,14 +6,14 @@ import random
 from tqdm import tqdm
 import json
 
-from lib import constants
-from lib.utils import make_unless_exits, print_argparse, indexes2oneHot, WorstItemSearch
-
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchaudio.transforms import MelSpectrogram
 
+from lib import constants
+from lib.utils import make_unless_exits, print_argparse, indexes2oneHot
+from lib.adaptation import collect_worst_item
 from lib.dataset import IdxSet, Subset, PseudoLabelSet
 from lib.spSet import SpeechCommandsV2C
 from lib.corruption import CorruptionMeta
@@ -55,36 +55,36 @@ def teacher_accu_analyzing(
         logger.log(data={f'Evaluation/{corruption_type} Accuracy': accu}, step=step)
     print(accu_dic)
 
-def collect_worst_item(
-        args:argparse.Namespace, corruption_types:list[str], idx_cache:dict, pred_cache:dict,
-        output_cache:dict, step:int, logger
-    ) -> tuple[dict[str, dict], list[str]]:
-    """return dict: key -> corruption type, value -> [idxs, labels]"""
-    print('Scanning and finding the most worst K teachers...')
-    K = args.fail_coll_lim
-    assert K < len(corruption_types)
-    worst_list = {} # key -> corruption type, value -> [idxs, labels]
-    for corruption_type in corruption_types:
-        worst_list[corruption_type] = {}
-    for idx, label, targets in tqdm(WorstItemSearch(
-        idxs=idx_cache, preds=pred_cache, outputs=output_cache, K=K, corruption_types=corruption_types
-    )):
-        for target in targets:
-            worst_item = worst_list[target]
-            worst_item[idx] = label
+# def collect_worst_item(
+#         args:argparse.Namespace, corruption_types:list[str], idx_cache:dict, pred_cache:dict,
+#         output_cache:dict, step:int, logger
+#     ) -> tuple[dict[str, dict], list[str]]:
+#     """return dict: key -> corruption type, value -> [idxs, labels]"""
+#     print('Scanning and finding the most worst K teachers...')
+#     K = args.fail_coll_lim
+#     assert K < len(corruption_types)
+#     worst_list = {} # key -> corruption type, value -> [idxs, labels]
+#     for corruption_type in corruption_types:
+#         worst_list[corruption_type] = {}
+#     for idx, label, targets in tqdm(WorstItemSearch(
+#         idxs=idx_cache, preds=pred_cache, outputs=output_cache, K=K, corruption_types=corruption_types
+#     )):
+#         for target in targets:
+#             worst_item = worst_list[target]
+#             worst_item[idx] = label
 
-    # print('Worst list presentation:')
-    Q = args.num_of_shft
-    assert Q < len(corruption_types), 'Unsupport!'
-    shft_prio = {}
-    for corruption_type in corruption_types:
-        shft_prio[corruption_type] = len(worst_list[corruption_type].keys()) / args.elect_weights[corruption_type]
-        print(f'type: {corruption_type}, size: {len(worst_list[corruption_type].keys())}, priority: {shft_prio[corruption_type]:.2f}')
-        logger.log(data={f'WorstList/{corruption_type}':len(worst_list[corruption_type].keys())}, step=step)
-    shft_typs = [it[0] for it in sorted(shft_prio.items(), key=lambda x: x[1], reverse=True)]
-    shft_typs = shft_typs[0:Q]
-    print(f'Shifting corruption types are: {shft_typs}')
-    return worst_list, shft_typs
+#     # print('Worst list presentation:')
+#     Q = args.num_of_shft
+#     assert Q < len(corruption_types), 'Unsupport!'
+#     shft_prio = {}
+#     for corruption_type in corruption_types:
+#         shft_prio[corruption_type] = len(worst_list[corruption_type].keys()) / args.elect_weights[corruption_type]
+#         print(f'type: {corruption_type}, size: {len(worst_list[corruption_type].keys())}, priority: {shft_prio[corruption_type]:.2f}')
+#         logger.log(data={f'WorstList/{corruption_type}':len(worst_list[corruption_type].keys())}, step=step)
+#     shft_typs = [it[0] for it in sorted(shft_prio.items(), key=lambda x: x[1], reverse=True)]
+#     shft_typs = shft_typs[0:Q]
+#     print(f'Shifting corruption types are: {shft_typs}')
+#     return worst_list, shft_typs
 
 # class WorstItemSearch:
 #     def __init__(

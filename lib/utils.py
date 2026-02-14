@@ -4,50 +4,6 @@ import argparse
 import torch
 from torch import nn
 
-class WorstItemSearch:
-    def __init__(
-        self, idxs:torch.Tensor, preds:torch.Tensor, outputs:dict[str, torch.Tensor], K:int,
-        corruption_types:list[str]
-    ):
-        self.idxs = idxs
-        self.preds = preds
-        self.outputs = outputs
-        assert K > 0, 'Unsupport'
-        self.K = K
-        self.corruption_types = corruption_types
-        self.i = 0
-    
-    def __iter__(self):
-        return self
-    
-    def __next__(self):
-        if self.i >= self.idxs.shape[0]:
-            raise StopIteration
-        pred = self.preds[self.i].item()
-        tmp = []
-        for corruption_type in self.corruption_types:
-            opt = self.outputs[corruption_type][self.i, :]
-            opt = torch.unsqueeze_copy(opt, 0)
-            tmp.append(opt)
-        tmp = torch.concatenate(tmp, dim=0)
-        _, indices = torch.sort(tmp[:, pred].clone(), descending=False)
-        label = tmp[indices[-1], :]
-
-        fail_check = (torch.max(tmp, dim=1)[1] != torch.tensor(([pred]*tmp.shape[0])))
-        num_fail = fail_check.sum().item()
-        idx = self.idxs[self.i].item()
-        self.i += 1
-        if num_fail == 0:
-            return self.__next__()
-        elif num_fail <= self.K:
-            fail_idx = torch.where(fail_check)[0]
-            targets = [self.corruption_types[k] for k in fail_idx]
-        else:
-            tmp[~fail_check] = 0.
-            _, indices = torch.sort(tmp[:, pred].clone(), descending=False)
-            targets = [self.corruption_types[k] for k in indices[len(indices)-num_fail:len(indices)-(num_fail-self.K)]]
-        return idx, label, targets
-
 def indexes2oneHot(labels:torch.Tensor, class_num:int) -> torch.Tensor:
     # ret = []
     # for idx in range(labels.shape[0]):
