@@ -7,7 +7,7 @@ from tqdm import tqdm
 import json
 
 from lib import constants
-from lib.utils import make_unless_exits, print_argparse, indexes2oneHot
+from lib.utils import make_unless_exits, print_argparse, indexes2oneHot, WorstItemSearch
 
 import torch
 from torch import nn
@@ -86,49 +86,49 @@ def collect_worst_item(
     print(f'Shifting corruption types are: {shft_typs}')
     return worst_list, shft_typs
 
-class WorstItemSearch:
-    def __init__(
-        self, idxs:torch.Tensor, preds:torch.Tensor, outputs:torch.Tensor, K:int,
-        corruption_types:list[str]
-    ):
-        self.idxs = idxs
-        self.preds = preds
-        self.outputs = outputs
-        assert K > 0, 'Unsupport'
-        self.K = K
-        self.corruption_types = corruption_types
-        self.i = 0
+# class WorstItemSearch:
+#     def __init__(
+#         self, idxs:torch.Tensor, preds:torch.Tensor, outputs:torch.Tensor, K:int,
+#         corruption_types:list[str]
+#     ):
+#         self.idxs = idxs
+#         self.preds = preds
+#         self.outputs = outputs
+#         assert K > 0, 'Unsupport'
+#         self.K = K
+#         self.corruption_types = corruption_types
+#         self.i = 0
     
-    def __iter__(self):
-        return self
+#     def __iter__(self):
+#         return self
     
-    def __next__(self):
-        if self.i >= self.idxs.shape[0]:
-            raise StopIteration
-        pred = self.preds[self.i].item()
-        tmp = []
-        for corruption_type in self.corruption_types:
-            opt = self.outputs[corruption_type][self.i, :]
-            opt = torch.unsqueeze_copy(opt, 0)
-            tmp.append(opt)
-        tmp = torch.concatenate(tmp, dim=0)
-        _, indices = torch.sort(tmp[:, pred].clone(), descending=False)
-        label = tmp[indices[-1], :]
+#     def __next__(self):
+#         if self.i >= self.idxs.shape[0]:
+#             raise StopIteration
+#         pred = self.preds[self.i].item()
+#         tmp = []
+#         for corruption_type in self.corruption_types:
+#             opt = self.outputs[corruption_type][self.i, :]
+#             opt = torch.unsqueeze_copy(opt, 0)
+#             tmp.append(opt)
+#         tmp = torch.concatenate(tmp, dim=0)
+#         _, indices = torch.sort(tmp[:, pred].clone(), descending=False)
+#         label = tmp[indices[-1], :]
 
-        fail_check = (torch.max(tmp, dim=1)[1] != torch.tensor(([pred]*tmp.shape[0])))
-        num_fail = fail_check.sum().item()
-        idx = self.idxs[self.i].item()
-        self.i += 1
-        if num_fail == 0:
-            return self.__next__()
-        elif num_fail <= self.K:
-            fail_idx = torch.where(fail_check)[0]
-            targets = [corruption_types[k] for k in fail_idx]
-        else:
-            tmp[~fail_check] = 0.
-            _, indices = torch.sort(tmp[:, pred].clone(), descending=False)
-            targets = [corruption_types[k] for k in indices[len(indices)-num_fail:len(indices)-(num_fail-self.K)]]
-        return idx, label, targets
+#         fail_check = (torch.max(tmp, dim=1)[1] != torch.tensor(([pred]*tmp.shape[0])))
+#         num_fail = fail_check.sum().item()
+#         idx = self.idxs[self.i].item()
+#         self.i += 1
+#         if num_fail == 0:
+#             return self.__next__()
+#         elif num_fail <= self.K:
+#             fail_idx = torch.where(fail_check)[0]
+#             targets = [corruption_types[k] for k in fail_idx]
+#         else:
+#             tmp[~fail_check] = 0.
+#             _, indices = torch.sort(tmp[:, pred].clone(), descending=False)
+#             targets = [corruption_types[k] for k in indices[len(indices)-num_fail:len(indices)-(num_fail-self.K)]]
+#         return idx, label, targets
 
 def pseudo_labeling(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], data_loader:DataLoader,
