@@ -22,6 +22,12 @@ from lib.optimizer import build_optimizer, lr_scheduler
 from lib.loss import CrossEntropyLabelSmooth
 from ..utils import build_model, load_weight, inference, store_weight
 
+def is_frozen(args:argparse.Namespace, epoch_num:int, crpt_typ:str) -> bool:
+    if crpt_typ in args.forbid_ls:
+        if epoch >= args.unfrz_pos: return False
+        else: return True
+    else: return True
+
 def teacher_accu_analyzing(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
         data_tf:nn.Module, step:int, logger
@@ -115,10 +121,12 @@ if __name__ == '__main__':
     ap.add_argument('--adpt_wght_pth', type=str)
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
     ap.add_argument('--elect_weights', type=str)
+    ap.add_argument('--rewgt_int', type=int, default=10)
     ap.add_argument('--num_of_shft', type=int, default=3, help='maximum number of shifting teachers')
     ap.add_argument('--fail_coll_lim', type=int, default=3, help='maximum number of fail prediction be choosed in worst list')
     ap.add_argument('--max_epoch', type=int, default=20)
     ap.add_argument('--forbid_ls', type=str, default="")
+    ap.add_argument('--unfrz_pos', type=int, default=-1)
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -276,12 +284,18 @@ if __name__ == '__main__':
                 clsf_loss.backward()
                 optimizer.step()
 
-            learning_rate = optimizer.param_groups[0]['lr']
+            # learning_rate = optimizer.param_groups[0]['lr']
             if epoch % args.interval == 0:
                 lr_scheduler(
                     optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
                     gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
                 )
+            if epoch % args.rewgt_int == 0 and epoch != 0:
+                elect_weights = {}
+                for k, wgt in args.elect_weights.items():
+                    if wgt > 1.: elect_weights[k] = ((wgt-1.)/2.) + 1.
+                    else: elect_weights[k] = wgt
+                args.elect_weights = elect_weights
 
     wandb_run.finish()
     print('END!')
