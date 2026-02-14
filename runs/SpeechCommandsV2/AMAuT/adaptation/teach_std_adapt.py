@@ -139,17 +139,18 @@ if __name__ == '__main__':
     max_accu = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
+        data_tfs = [Components(transforms=[
+            MelSpectrogram(
+                sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
+                n_mels=args.n_mels, mel_scale=mel_scale
+            ),
+            AmplitudeToDB(top_db=80., max_out=2.),
+            FrequenceTokenTransformer()
+        ])] * len(corruption_types)
         print('Inferencing...')
         accuracy_evaluate(
             args=args, teach_auts=teach_auts, teach_clsfs=teach_clsfs, std_aut=std_aut, std_clsf=std_clsf,
-            corruption_types=corruption_types, data_tfs=[Components(transforms=[
-                MelSpectrogram(
-                    sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
-                    n_mels=args.n_mels, mel_scale=mel_scale
-                ),
-                AmplitudeToDB(top_db=80., max_out=2.),
-                FrequenceTokenTransformer()
-            ])] * len(corruption_types)
+            corruption_types=corruption_types, data_tfs=data_tfs
         )
         exit()
 
