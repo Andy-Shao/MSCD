@@ -24,9 +24,10 @@ from ..utils import build_model, load_weight, inference, store_weight
 
 def is_frozen(args:argparse.Namespace, epoch_num:int, crpt_typ:str) -> bool:
     if crpt_typ in args.forbid_ls:
-        if epoch >= args.unfrz_pos: return False
+        if args.unfrz_pos == -1: return True
+        elif epoch_num >= args.unfrz_pos: return False
         else: return True
-    else: return True
+    else: return False
 
 def teacher_accu_analyzing(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
@@ -270,7 +271,8 @@ if __name__ == '__main__':
 
             for features, labels in adpt_loader:
                 if corruption_type not in shft_typs: break
-                if corruption_type in args.forbid_ls: break
+                # if corruption_type in args.forbid_ls: break
+                if is_frozen(args=args, epoch_num=epoch, crpt_typ=corruption_type): break
                 features, labels = features.to(args.device), labels.to(args.device)  
                 if features.shape[0] == 1:
                     features = features.repeat(4, 1, 1)
