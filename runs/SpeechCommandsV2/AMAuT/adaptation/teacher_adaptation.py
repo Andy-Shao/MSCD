@@ -295,9 +295,13 @@ if __name__ == '__main__':
             if epoch % args.rewgt_int == 0 and epoch != 0:
                 elect_weights = {}
                 for k, wgt in args.elect_weights.items():
-                    if wgt > 1.: elect_weights[k] = ((wgt-1.)/2.) + 1.
+                    if wgt > 1.: 
+                        elect_weight = ((wgt-1.)/2.) + 1.
+                        if elect_weight < 1.1: elect_weight = 1.
+                        elect_weights[k] = elect_weight
                     else: elect_weights[k] = wgt
                 args.elect_weights = elect_weights
+                args.rewgt_int = max(7, args.rewgt_int-2)
 
     wandb_run.finish()
     print('END!')
