@@ -1,6 +1,23 @@
 import torch
 from torch import nn
 
+class ContrastiveLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.log_softmax = nn.LogSoftmax(dim=0)
+
+    def forward(self, x:torch.Tensor, marks:torch.Tensor) -> torch.Tensor:
+        x_norm = nn.functional.normalize(x, p=2, dim=1)
+        cos_sim = x_norm @ x_norm.T # self-consine similarity
+        B = cos_sim.shape[0]
+        idx = torch.triu_indices(B, B, offset=1)
+        unrepeat_cos_sim = cos_sim[idx[0], idx[1]]
+
+        mark_norm = marks / marks.sum()
+        loss = mark_norm * self.log_softmax(unrepeat_cos_sim) 
+        loss = - torch.mean(loss)
+        return loss
+
 def mse_loss(o1:torch.Tensor, o2:torch.Tensor) -> torch.Tensor:
     import torch.nn.functional as F
     o1 = F.softmax(o1, dim=1)

@@ -4,6 +4,13 @@ import argparse
 import torch
 from torch import nn
 
+def unique_pairs(start:int, end:int) -> list:
+    ret = []
+    if start+1 >= end: return []
+    for i in range(start+1, end):
+        ret.append([start, i])
+    return ret + unique_pairs(start+1, end)
+
 def indexes2oneHot(labels:torch.Tensor, class_num:int) -> torch.Tensor:
     # ret = []
     # for idx in range(labels.shape[0]):
