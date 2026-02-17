@@ -3,13 +3,6 @@ from tqdm import tqdm
 
 import torch
 
-def is_hi_mark(out:torch.Tensor, pseudo_label: torch.Tensor, hi_def_smth:float, class_num:int) -> bool:
-    hi_mark = (1-hi_def_smth)*torch.eye(class_num)[0] + hi_def_smth/class_num
-    hi_mark, _ = torch.max(hi_mark, dim=0)
-    pl_v, pl_pos = torch.max(pseudo_label, dim=0)
-    out_v, out_pos = torch.max(out, dim=0)
-    return pl_v >= hi_mark.item() and pl_pos == out_pos
-
 def is_hi_marks(outs:torch.Tensor, pseudo_labels: torch.Tensor, hi_def_smth:float, class_num:int) -> bool:
     hi_mark = (1-hi_def_smth)*torch.eye(class_num)[0] + hi_def_smth/class_num
     hi_mark, _ = torch.max(hi_mark, dim=0)
@@ -37,24 +30,6 @@ def sim_mark(
     samp_pred = (o1_p == o2_p)
     result = result.masked_fill_(mask=torch.logical_and(final_check, samp_pred), value=1.)
     result = result.masked_fill_(mask=torch.logical_and(final_check, ~samp_pred), value=-1.)
-    
-    # ret = []
-    # idx = torch.triu_indices(outs.shape[0], outs.shape[0], offset=1)
-    # idx = list(zip(idx[0].numpy(), idx[1].numpy()))
-    # for i,j in idx:
-    #     i_check = is_hi_mark(
-    #         out=outs[i], pseudo_label=pseudo_labels[i], hi_def_smth=hi_def_smth, class_num=class_num
-    #     )
-    #     j_check = is_hi_mark(
-    #         out=outs[j], pseudo_label=pseudo_labels[j], hi_def_smth=hi_def_smth, class_num=class_num
-    #     )
-    #     if i_check and j_check:
-    #         oi_v, oi_p = torch.max(outs[i], dim=0)
-    #         oj_v, oj_p = torch.max(outs[j], dim=0)
-    #         if oi_p == oj_p: ret.append(1.)
-    #         else: ret.append(-1.)
-    #     else: ret.append(0.)
-    # ret = torch.tensor(ret).to(device=device)
     return result
 
 class WorstItemSearch:
