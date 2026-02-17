@@ -18,7 +18,6 @@ from lib.corruption import CorruptionMeta
 from lib.dataset import IdxSet, PseudoLabelSet
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.optimizer import build_optimizer, lr_scheduler
-from lib.loss import ContrastiveLoss
 from ..utils import build_model, load_weight, mlt_inference, store_weight
 
 def clsf_rate(min_val:float, turn_epoch:int, epoch:int) -> float:
@@ -231,7 +230,6 @@ if __name__ == '__main__':
     optimizer = build_optimizer(
         lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay
     )
-    ctr_loss_fun = ContrastiveLoss(hi_def_smth=args.hi_def_smth, class_num=args.class_num, device=args.device)
 
     print('Student Adaptation')
     max_accu = 0.
