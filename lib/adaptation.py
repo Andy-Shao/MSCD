@@ -3,8 +3,6 @@ from tqdm import tqdm
 
 import torch
 
-from lib.utils import unique_pairs
-
 def is_hi_mark(out:torch.Tensor, pseudo_label: torch.Tensor, hi_def_smth:float, class_num:int) -> bool:
     hi_mark = (1-hi_def_smth)*torch.eye(class_num)[0] + hi_def_smth/class_num
     hi_mark, _ = torch.max(hi_mark, dim=0)
