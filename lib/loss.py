@@ -12,11 +12,13 @@ class ContrastiveLoss(nn.Module):
         self.device = device
 
     def forward(self, x:torch.Tensor, pseudo_labels:torch.Tensor) -> torch.Tensor:
-        x_norm = nn.functional.normalize(x, p=2, dim=1)
-        cos_sim = x_norm @ x_norm.T # self-consine similarity
-        B = cos_sim.shape[0]
-        idx = torch.triu_indices(B, B, offset=1)
-        unrepeat_cos_sim = cos_sim[idx[0], idx[1]]
+        # x_norm = nn.functional.normalize(x, p=2, dim=1)
+        # cos_sim = x_norm @ x_norm.T # self-consine similarity
+        # B = cos_sim.shape[0]
+        # idx = torch.triu_indices(B, B, offset=1)
+        # unrepeat_cos_sim = cos_sim[idx[0], idx[1]]
+        idx = torch.triu_indices(x.shape[0], x.shape[0], offset=1)
+        unrepeat_cos_sim = nn.functional.cosine_similarity(x1=x[idx[0]], x2=x[idx[1]], dim=1)
 
         marks = sim_mark(
             outs=x, pseudo_labels=pseudo_labels, hi_def_smth=self.hi_def_smth, 
