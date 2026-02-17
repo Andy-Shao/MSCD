@@ -17,7 +17,9 @@ def sim_mark(
     class_num: int, device:str
 ) -> torch.tensor:
     ret = []
-    for i,j in unique_pairs(start=0, end=outs.shape[0]):
+    idx = torch.triu_indices(outs.shape[0], outs.shape[0], offset=1)
+    idx = list(zip(idx[0].numpy(), idx[1].numpy()))
+    for i,j in idx:
         i_check = is_hi_mark(
             out=outs[i], pseudo_label=pseudo_labels[i], hi_def_smth=hi_def_smth, class_num=class_num
         )
