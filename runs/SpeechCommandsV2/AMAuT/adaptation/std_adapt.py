@@ -18,6 +18,7 @@ from lib.corruption import CorruptionMeta
 from lib.dataset import IdxSet, PseudoLabelSet
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.optimizer import build_optimizer, lr_scheduler
+from lib.loss import ContrastiveLoss
 from ..utils import build_model, load_weight, mlt_inference, store_weight
 
 def clsf_rate(min_val:float, turn_epoch:int, epoch:int) -> float:
@@ -230,6 +231,7 @@ if __name__ == '__main__':
     optimizer = build_optimizer(
         lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay
     )
+    ctr_loss_fun = ContrastiveLoss(hi_def_smth=args.hi_def_smth, class_num=args.class_num, device=args.device)
 
     print('Student Adaptation')
     max_accu = 0.
@@ -256,6 +258,7 @@ if __name__ == '__main__':
         if epoch >= args.max_epoch: break
         print('Adaptating...')
         aut.train(); clsf.train()
+        ttl_loss = 0.; ttl_clsf_loss = 0.
         for adpt_data in tqdm(adpt_loader):
             labels = adpt_data[-1].to(args.device)
             for i in range(len(adpt_data)-1):
@@ -266,13 +269,20 @@ if __name__ == '__main__':
                 # clsf_loss
                 clsf_loss = (-labels * nn.functional.log_softmax(outputs, dim=1)).sum(dim=1) # cross-entropy loss
                 clsf_loss = clsf_loss.mean()
+
                 if i == 0:
-                    ttl_loss = clsf_loss
+                    loss = clsf_loss
                 else: 
-                    ttl_loss += clsf_loss
+                    loss += clsf_loss
+                ttl_clsf_loss += clsf_loss.detach().cpu().item()
             optimizer.zero_grad()
-            ttl_loss.backward()
+            loss.backward()
             optimizer.step()
+            ttl_loss += loss.detach().cpu().item()
+        wandb_run.log(data={
+            'Loss/TTL Loss': ttl_loss/(len(adpt_loader)*len(corruption_types)),
+            'Loss/Classification loss': ttl_clsf_loss/(len(adpt_loader)*len(corruption_types)),
+        }, step=epoch)
         if epoch % args.interval == 0:
             lr_scheduler(
                 optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,

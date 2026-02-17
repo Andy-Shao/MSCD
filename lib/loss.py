@@ -26,7 +26,7 @@ class ContrastiveLoss(nn.Module):
         )
         mark_norm = marks / marks.sum()
         loss = mark_norm * self.log_softmax(unrepeat_cos_sim) 
-        loss = - torch.mean(loss)
+        loss = - torch.sum(loss)
         return loss
 
 def mse_loss(o1:torch.Tensor, o2:torch.Tensor) -> torch.Tensor:
