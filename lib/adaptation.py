@@ -6,15 +6,15 @@ import torch
 from lib.utils import unique_pairs
 
 def is_hi_mark(out:torch.Tensor, pseudo_label: torch.Tensor, hi_def_smth:float, class_num:int) -> bool:
-    hi_mark = (1-torch.eye(class_num)[0])*hi_def_smth + hi_def_smth/class_num
+    hi_mark = (1-hi_def_smth)*torch.eye(class_num)[0] + hi_def_smth/class_num
     hi_mark, _ = torch.max(hi_mark, dim=0)
     pl_v, pl_pos = torch.max(pseudo_label, dim=0)
     out_v, out_pos = torch.max(out, dim=0)
-    return pl_v >= hi_mark and pl_pos == out_pos
+    return pl_v >= hi_mark.item() and pl_pos == out_pos
 
 def sim_mark(
     outs:torch.Tensor, pseudo_labels:torch.Tensor, hi_def_smth:float, 
-    class_num: int
+    class_num: int, device:str
 ) -> torch.tensor:
     ret = []
     for i,j in unique_pairs(start=0, end=outs.shape[0]):
@@ -27,10 +27,10 @@ def sim_mark(
         if i_check and j_check:
             oi_v, oi_p = torch.max(outs[i], dim=0)
             oj_v, oj_p = torch.max(outs[j], dim=0)
-            if oi_p == oj_p: ret.append(1)
-            else: ret.append(-1)
-        else: ret.append(0)
-    return ret
+            if oi_p == oj_p: ret.append(1.)
+            else: ret.append(-1.)
+        else: ret.append(0.)
+    return torch.tensor(ret).to(device=device)
 
 class WorstItemSearch:
     def __init__(
