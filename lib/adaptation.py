@@ -18,6 +18,7 @@ def sim_mark(
     
     marks = hi_marks * same_pred_marks
     marks[(marks==-0.) & torch.signbit(marks)] = 0. # covert -0.0 to 0.0
+    marks = marks.fill_diagonal_(fill_value=0.) # fill leading-diagonal to 0.
     return marks
 
 class WorstItemSearch:

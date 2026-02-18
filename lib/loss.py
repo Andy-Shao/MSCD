@@ -13,14 +13,16 @@ class ContrastiveLoss(nn.Module):
         self.eps = eps
 
     def forward(self, x:torch.Tensor, pseudo_labels:torch.Tensor) -> torch.Tensor:
-        x_norm = nn.functional.normalize(x, p=2, dim=1)
-        cos_sim = x_norm @ x_norm.T # self-consine similarity
+        # x_norm = nn.functional.normalize(x, p=2, dim=1)
+        # cos_sim = x_norm @ x_norm.T # self-consine similarity
+        x_softmax = self.log_softmax(x)
+        l2_dist = torch.cdist(x1=x_softmax, x2=x_softmax, p=2)
         marks = sim_mark(
             outs=x, pseudo_labels=pseudo_labels, hi_def_smth=self.hi_def_smth, 
             class_num=self.class_num, device=self.device
         )
         mark_norm = marks / (marks.sum(dim=1, keepdim=True)+self.eps)
-        loss = mark_norm * self.log_softmax(cos_sim)
+        loss = mark_norm * self.log_softmax(l2_dist)
         loss = loss.sum(dim=1)
         loss = - loss.mean()
         return loss
