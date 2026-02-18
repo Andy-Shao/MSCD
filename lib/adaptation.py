@@ -3,23 +3,23 @@ from tqdm import tqdm
 
 import torch
 
-def sim_mark(
-    outs:torch.Tensor, pseudo_labels:torch.Tensor, hi_def_smth:float, 
-    class_num: int, device:str
-) -> torch.Tensor:
-    hi_mark = (1-hi_def_smth)*torch.eye(class_num)[0] + hi_def_smth/class_num
-    hi_mark_val, _ = torch.max(hi_mark, dim=0)
-    pl_val, _ = torch.max(pseudo_labels.detach(), dim=1)
-    is_hi_mark = (pl_val >= hi_mark_val)
-    hi_marks = (is_hi_mark.clone().unsqueeze(dim=1) & is_hi_mark.unsqueeze(dim=0)).float()
+# def sim_mark(
+#     outs:torch.Tensor, pseudo_labels:torch.Tensor, hi_def_smth:float, 
+#     class_num: int, device:str
+# ) -> torch.Tensor:
+#     hi_mark = (1-hi_def_smth)*torch.eye(class_num)[0] + hi_def_smth/class_num
+#     hi_mark_val, _ = torch.max(hi_mark, dim=0)
+#     pl_val, _ = torch.max(pseudo_labels.detach(), dim=1)
+#     is_hi_mark = (pl_val >= hi_mark_val)
+#     hi_marks = (is_hi_mark.clone().unsqueeze(dim=1) & is_hi_mark.unsqueeze(dim=0)).float()
 
-    _, out_pos = torch.max(outs.detach(), dim=1)
-    same_pred_marks = (out_pos.unsqueeze(dim=1) == out_pos.unsqueeze(dim=0)).float() * 2 - 1
+#     _, out_pos = torch.max(outs.detach(), dim=1)
+#     same_pred_marks = (out_pos.unsqueeze(dim=1) == out_pos.unsqueeze(dim=0)).float() * 2 - 1
     
-    marks = hi_marks * same_pred_marks
-    marks[(marks==-0.) & torch.signbit(marks)] = 0. # covert -0.0 to 0.0
-    marks = marks.fill_diagonal_(fill_value=0.) # fill leading-diagonal to 0.
-    return marks
+#     marks = hi_marks * same_pred_marks
+#     marks[(marks==-0.) & torch.signbit(marks)] = 0. # covert -0.0 to 0.0
+#     marks = marks.fill_diagonal_(fill_value=0.) # fill leading-diagonal to 0.
+#     return marks
 
 class WorstItemSearch:
     def __init__(

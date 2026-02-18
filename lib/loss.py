@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from lib.adaptation import sim_mark
+# from lib.adaptation import sim_mark
 
 class ContrastiveLoss(nn.Module):
     def __init__(self, hi_def_smth:float, class_num:int, device:str, eps:float=1e-8):
@@ -12,15 +12,31 @@ class ContrastiveLoss(nn.Module):
         self.device = device
         self.eps = eps
 
+    def __marking__(self, outs:torch.Tensor, pseudo_labels:torch.Tensor) -> torch.Tensor:
+        hi_mark = (1-self.hi_def_smth)*torch.eye(self.class_num)[0] + self.hi_def_smth/self.class_num
+        hi_mark_val, _ = torch.max(hi_mark, dim=0)
+        pl_val, _ = torch.max(pseudo_labels.detach(), dim=1)
+        is_hi_mark = (pl_val >= hi_mark_val)
+        hi_marks = (is_hi_mark.clone().unsqueeze(dim=1) & is_hi_mark.unsqueeze(dim=0)).float()
+
+        _, out_pos = torch.max(outs.detach(), dim=1)
+        same_pred_marks = (out_pos.unsqueeze(dim=1) == out_pos.unsqueeze(dim=0)).float() * 2 - 1
+
+        marks = hi_marks * same_pred_marks
+        marks[(marks==-0.) & torch.signbit(marks)] = 0. # covert -0.0 to 0.0
+        marks = marks.fill_diagonal_(fill_value=0.) # fill leading-diagonal to 0.
+        return marks
+
     def forward(self, x:torch.Tensor, pseudo_labels:torch.Tensor) -> torch.Tensor:
         # x_norm = nn.functional.normalize(x, p=2, dim=1)
         # cos_sim = x_norm @ x_norm.T # self-consine similarity
         x_softmax = self.log_softmax(x)
         l2_dist = torch.cdist(x1=x_softmax, x2=x_softmax, p=2)
-        marks = sim_mark(
-            outs=x, pseudo_labels=pseudo_labels, hi_def_smth=self.hi_def_smth, 
-            class_num=self.class_num, device=self.device
-        )
+        # marks = sim_mark(
+        #     outs=x, pseudo_labels=pseudo_labels, hi_def_smth=self.hi_def_smth, 
+        #     class_num=self.class_num, device=self.device
+        # )
+        marks = self.__marking__(outs=x, pseduo_labels=pseudo_labels)
         mark_norm = marks / (marks.sum(dim=1, keepdim=True)+self.eps)
         loss = mark_norm * self.log_softmax(l2_dist)
         loss = loss.sum(dim=1)
