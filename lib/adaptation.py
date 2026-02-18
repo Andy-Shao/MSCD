@@ -3,34 +3,22 @@ from tqdm import tqdm
 
 import torch
 
-def is_hi_marks(outs:torch.Tensor, pseudo_labels: torch.Tensor, hi_def_smth:float, class_num:int) -> bool:
-    hi_mark = (1-hi_def_smth)*torch.eye(class_num)[0] + hi_def_smth/class_num
-    hi_mark, _ = torch.max(hi_mark, dim=0)
-    pl_v, pl_pos = torch.max(pseudo_labels, dim=1)
-    out_v, out_pos = torch.max(outs, dim=1)
-    return torch.logical_and(pl_v>=hi_mark.item(), pl_pos == out_pos)
-
 def sim_mark(
     outs:torch.Tensor, pseudo_labels:torch.Tensor, hi_def_smth:float, 
     class_num: int, device:str
-) -> torch.tensor:
-    idx = torch.triu_indices(outs.shape[0], outs.shape[0], offset=1)
-    o1 = outs[idx[0]]; pl1 = pseudo_labels[idx[0]]
-    o2 = outs[idx[1]]; pl2 = pseudo_labels[idx[1]]
-    i_check = is_hi_marks(
-        outs=o1, pseudo_labels=pl1, hi_def_smth=hi_def_smth, class_num=class_num
-    )
-    j_check = is_hi_marks(
-        outs=o2, pseudo_labels=pl2, hi_def_smth=hi_def_smth, class_num=class_num
-    )
-    final_check = torch.logical_and(i_check, j_check)
-    result = torch.zeros(size=idx[0].size()).to(device=device)
-    _, o1_p = torch.max(o1, dim=1)
-    _, o2_p = torch.max(o2, dim=1)
-    samp_pred = (o1_p == o2_p)
-    result = result.masked_fill_(mask=torch.logical_and(final_check, samp_pred), value=1.)
-    result = result.masked_fill_(mask=torch.logical_and(final_check, ~samp_pred), value=-1.)
-    return result
+) -> torch.Tensor:
+    hi_mark = (1-hi_def_smth)*torch.eye(class_num)[0] + hi_def_smth/class_num
+    hi_mark_val, _ = torch.max(hi_mark, dim=0)
+    pl_val, _ = torch.max(pseudo_labels.detach(), dim=1)
+    is_hi_mark = (pl_val >= hi_mark_val)
+    hi_marks = (is_hi_mark.clone().unsqueeze(dim=1) & is_hi_mark.unsqueeze(dim=0)).float()
+
+    _, out_pos = torch.max(outs.detach(), dim=1)
+    same_pred_marks = (out_pos.unsqueeze(dim=1) == out_pos.unsqueeze(dim=0)).float() * 2 - 1
+    
+    marks = hi_marks * same_pred_marks
+    marks[(marks==-0.) & torch.signbit(marks)] = 0. # covert -0.0 to 0.0
+    return marks
 
 class WorstItemSearch:
     def __init__(

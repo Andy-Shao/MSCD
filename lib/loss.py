@@ -4,29 +4,25 @@ from torch import nn
 from lib.adaptation import sim_mark
 
 class ContrastiveLoss(nn.Module):
-    def __init__(self, hi_def_smth:float, class_num:int, device:str):
+    def __init__(self, hi_def_smth:float, class_num:int, device:str, eps:float=1e-8):
         super().__init__()
-        self.log_softmax = nn.LogSoftmax(dim=0)
+        self.log_softmax = nn.LogSoftmax(dim=1)
         self.hi_def_smth = hi_def_smth
         self.class_num = class_num
         self.device = device
+        self.eps = eps
 
     def forward(self, x:torch.Tensor, pseudo_labels:torch.Tensor) -> torch.Tensor:
-        # x_norm = nn.functional.normalize(x, p=2, dim=1)
-        # cos_sim = x_norm @ x_norm.T # self-consine similarity
-        # B = cos_sim.shape[0]
-        # idx = torch.triu_indices(B, B, offset=1)
-        # unrepeat_cos_sim = cos_sim[idx[0], idx[1]]
-        idx = torch.triu_indices(x.shape[0], x.shape[0], offset=1)
-        unrepeat_cos_sim = nn.functional.cosine_similarity(x1=x[idx[0]], x2=x[idx[1]], dim=1)
-
+        x_norm = nn.functional.normalize(x, p=2, dim=1)
+        cos_sim = x_norm @ x_norm.T # self-consine similarity
         marks = sim_mark(
             outs=x, pseudo_labels=pseudo_labels, hi_def_smth=self.hi_def_smth, 
             class_num=self.class_num, device=self.device
         )
-        mark_norm = marks / marks.sum()
-        loss = mark_norm * self.log_softmax(unrepeat_cos_sim) 
-        loss = - torch.sum(loss)
+        mark_norm = marks / (marks.sum(dim=1, keepdim=True)+self.eps)
+        loss = mark_norm * self.log_softmax(cos_sim)
+        loss = loss.sum(dim=1)
+        loss = - loss.mean()
         return loss
 
 def mse_loss(o1:torch.Tensor, o2:torch.Tensor) -> torch.Tensor:
