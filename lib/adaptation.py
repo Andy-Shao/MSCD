@@ -3,6 +3,13 @@ from tqdm import tqdm
 
 import torch
 
+def is_frozen(args:argparse.Namespace, epoch_num:int, crpt_typ:str) -> bool:
+    if crpt_typ in args.forbid_ls:
+        if args.unfrz_pos == -1: return True
+        elif epoch_num >= args.unfrz_pos: return False
+        else: return True
+    else: return False
+
 # def sim_mark(
 #     outs:torch.Tensor, pseudo_labels:torch.Tensor, hi_def_smth:float, 
 #     class_num: int, device:str

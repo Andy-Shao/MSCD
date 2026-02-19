@@ -106,3 +106,33 @@ class FrequenceTokenTransformer(nn.Module):
         c, token_num, token_len = x.size()
         x = x.reshape(-1, token_len)
         return x
+
+class AudioClip(nn.Module):
+    def __init__(self, max_length:int, mode:str='head', is_random:bool=False):
+        super(AudioClip, self).__init__()
+        assert mode in ['head', 'mid', 'tail']
+        self.max_length = max_length
+        self.mode = mode
+        self.is_random = is_random
+
+    def forward(self, x:torch.Tensor) -> torch.Tensor:
+        l = x.shape[1] - self.max_length
+        if l > 0:
+            if self.is_random:
+                start = np.random.randint(low=0, high=l)
+            elif self.mode == 'head':
+                start = 0
+            elif self.mode == 'mid':
+                start = int(l/2.)
+            elif self.mode == 'tail':
+                start = l
+            x = x[:, start:start+self.max_length]
+        return x
+    
+class OneHot2Index(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x:torch.Tensor) -> int:
+        _, pred = torch.max(x, dim=0)
+        return pred.item()
