@@ -20,40 +20,46 @@ from lib.acousSet import ReefSetC
 from lib.dataset import IdxSet
 from lib.component import Components, FrequenceTokenTransformer, AmplitudeToDB, OneHot2Index
 from lib.component import AudioClip
-from ..util import build_model, load_weight, inference
+from ..util import build_model, load_weight, teach_inference
 
 def teacher_accu_analyzing(
     args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
-    data_tf:nn.Module, step:int, logger
+    data_tfs:list[nn.Module], step:int, logger
 ) -> None:
-    print('Teacher accuracy analyzing...')
+    print('Teachers ROC-AUC analyzing...')
     for aut in auts: aut.eval()
     for clsf in clsfs: clsf.eval()
-    accu_dic = {}
-    for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
-        adpt_set = ReefSetC(
-            root_path=args.adpt_set_path, corruption_type=corruption_type, corruption_level=args.corruption_level,
-            data_tf=data_tf, label_tf=OneHot2Index()
-        )
-        adpt_loader = DataLoader(
-            dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
-            num_workers=args.num_workers
-        )
-        accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=adpt_loader, tqdmable=False)
-        logger.log(data={f'Adaptation/{corruption_type} Accuracy': accu}, step=step)
-        accu_dic[f'{corruption_type}-{args.corruption_level}']=accu
+    print('Adaptation sets analyzing...')
+    adpt_set = ReefSetC(
+        root_path=args.adpt_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level,
+        data_tf=data_tfs, label_tf=OneHot2Index()
+    )
+    adpt_loader = DataLoader(
+        dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
+        num_workers=args.num_workers
+    )
+    adpt_roc_aucs = teach_inference(
+        args=args, corruption_types=corruption_types, auts=auts, clsfs=clsfs, data_loader=adpt_loader
+    )
+    print({k:round(v, ndigits=4) for k,v in adpt_roc_aucs.items()})
+    for k, v in adpt_roc_aucs.items():
+        logger.log(data={f'Adaptation/{k} ROC-AUC': v}, step=step)
 
-        eval_set = ReefSetC(
-            root_path=args.adpt_set_path, corruption_type=corruption_type, corruption_level=args.corruption_level,
-            data_tf=data_tf, label_tf=OneHot2Index()
-        )
-        eval_loader = DataLoader(
-            dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
-            num_workers=args.num_workers
-        )
-        accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=eval_loader, tqdmable=False)
-        logger.log(data={f'Evaluation/{corruption_type} Accuracy': accu}, step=step)
-    print({k:round(v, ndigits=4) for k,v in accu_dic.items()})
+    print('Evaluation sets analyzing...')
+    eval_set = ReefSetC(
+        root_path=args.eval_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level,
+        data_tf=data_tfs, label_tf=OneHot2Index()
+    )
+    eval_loader = DataLoader(
+        dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
+        num_workers=args.num_workers
+    )
+    roc_aucs = teach_inference(
+        args=args, corruption_types=corruption_types, auts=auts, clsfs=clsfs, data_loader=eval_loader
+    )
+    print({k:round(v, ndigits=4) for k,v in roc_aucs.items()})
+    for k,v in roc_aucs.items():
+        logger.log(data={f'Evaluation/{k} ROC-AUC': v}, step=step)
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -154,7 +160,7 @@ if __name__ == '__main__':
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_accu_analyzing(
-            args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types, data_tf=data_tfs[0],
+            args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types, data_tfs=data_tfs,
             step=epoch, logger=wandb_run
         )
         exit()

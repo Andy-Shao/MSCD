@@ -13,6 +13,35 @@ from lib.corruption import CorruptionMeta
 from AuT.lib.model import FCETransform, AudioClassifier
 from AuT.lib.config import AuT_base
 
+def teach_inference(
+    args:argparse.Namespace, corruption_types:list[str], auts:list[nn.Module], clsfs:list[nn.Module],
+    data_loader:DataLoader
+) -> dict[str, float]:
+    for aut in auts: aut.eval()
+    for clsf in clsfs: clsf.eval()
+    y_trues, y_scores = {it:[] for it in corruption_types}, {it:[] for it in corruption_types}
+    roc_aucs = {}
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            corruption_type = corruption_types[i]
+            features = data[i].to(args.device)
+            aut = auts[i]
+            clsf = clsfs[i]
+
+            with torch.inference_mode():
+                outputs, _ = clsf(aut(features)[0])
+
+            y_trues[corruption_type].append(indexes2oneHot(labels=labels, class_num=args.class_num))
+            y_scores[corruption_type].append(outputs.detach().cpu())
+    for corruption_type in corruption_types:
+        y_t = torch.concat(y_trues[corruption_type], dim=0)
+        y_s = torch.concat(y_scores[corruption_type], dim=0)
+        roc_aucs[corruption_type] = roc_auc_score(y_true=y_t.numpy(), y_score=y_s.numpy(), average='macro')
+        y_trues[corruption_type] = y_t
+        y_scores[corruption_type] = y_s
+    return roc_aucs
+
 def inference(
     args:argparse.Namespace, aut:FCETransform, clsf:AudioClassifier, data_loader:DataLoader,
     tqdmable:bool=True
@@ -20,18 +49,17 @@ def inference(
     aut.eval(); clsf.eval()
     if tqdmable: iterator = tqdm(enumerate(data_loader), total=len(data_loader))
     else: iterator = enumerate(data_loader)
+    y_true, y_score = [], []
     for idx, (features, labels) in iterator:
-        features, labels = features.to(args.device), labels.to(args.device)
+        features = features.to(args.device)
 
         with torch.inference_mode():
             outputs, _ = clsf(aut(features)[0])
 
-        if idx == 0:
-            y_true = indexes2oneHot(labels=labels, class_num=args.class_num)
-            y_score = outputs.detach().cpu()
-        else:
-            y_true = torch.cat([y_true, indexes2oneHot(labels=labels, class_num=args.class_num)], dim=0)
-            y_score = torch.cat([y_score, outputs.detach().cpu()], dim=0)
+        y_true.append(indexes2oneHot(labels=labels, class_num=args.class_num))
+        y_score.append(outputs.detach().cpu())
+    y_true = torch.concat(y_true, dim=0)
+    y_score = torch.concat(y_score, dim=0)
     val_roc_auc = roc_auc_score(y_true=y_true.numpy(), y_score=y_score.numpy(), average='macro')
     return val_roc_auc
 
