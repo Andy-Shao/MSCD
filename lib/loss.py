@@ -1,8 +1,6 @@
 import torch
 from torch import nn
 
-# from lib.adaptation import sim_mark
-
 class ContrastiveLoss(nn.Module):
     def __init__(self, hi_def_smth:float, class_num:int, device:str, eps:float=1e-8):
         super().__init__()
@@ -32,11 +30,7 @@ class ContrastiveLoss(nn.Module):
         # cos_sim = x_norm @ x_norm.T # self-consine similarity
         x_softmax = self.log_softmax(x)
         l2_dist = torch.cdist(x1=x_softmax, x2=x_softmax, p=2)
-        # marks = sim_mark(
-        #     outs=x, pseudo_labels=pseudo_labels, hi_def_smth=self.hi_def_smth, 
-        #     class_num=self.class_num, device=self.device
-        # )
-        marks = self.__marking__(outs=x, pseduo_labels=pseudo_labels)
+        marks = self.__marking__(outs=x, pseudo_labels=pseudo_labels)
         mark_norm = marks / (marks.sum(dim=1, keepdim=True)+self.eps)
         loss = mark_norm * self.log_softmax(l2_dist)
         loss = loss.sum(dim=1)
