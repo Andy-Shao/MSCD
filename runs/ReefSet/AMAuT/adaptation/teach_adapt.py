@@ -97,15 +97,15 @@ def pseudo_labeling(
             preds = preds * args.elect_weights[corruption_type]
             if j == 1: 
                 final_preds = preds
-                # y_s = nn.functional.softmax(outputs, dim=1) * args.elect_weights[corruption_type]
+                y_s = nn.functional.softmax(outputs, dim=1) * args.elect_weights[corruption_type]
             else: 
                 final_preds += preds
-                # y_s += nn.functional.softmax(outputs, dim=1) * args.elect_weights[corruption_type]
+                y_s += nn.functional.softmax(outputs, dim=1) * args.elect_weights[corruption_type]
             if i == 0: output_cache[corruption_type] = [outputs]
             else: output_cache[corruption_type].append(outputs)
         _, final_preds = torch.max(final_preds, dim=1)
         y_true.append(indexes2oneHot(labels=labels, class_num=args.class_num))
-        y_score.append(indexes2oneHot(labels=final_preds, class_num=args.class_num))
+        y_score.append(y_s)
         if i==0: 
             pred_cache = [final_preds]
             idx_cache = [idx]
