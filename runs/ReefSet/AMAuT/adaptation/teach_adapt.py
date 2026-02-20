@@ -18,9 +18,10 @@ from lib.loss import CrossEntropyLabelSmooth
 from lib.corruption import CorruptionMeta
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.acousSet import ReefSetC
-from lib.dataset import IdxSet
+from lib.dataset import IdxSet, PseudoLabelSet, Subset
 from lib.component import Components, FrequenceTokenTransformer, AmplitudeToDB, OneHot2Index
 from lib.component import AudioClip
+from lib.adaptation import collect_worst_item
 from ..util import build_model, load_weight, teach_inference
 
 def teacher_accu_analyzing(
@@ -229,7 +230,50 @@ if __name__ == '__main__':
             step=epoch, logger=wandb_run
         )
         # TODO store the highest ROC-AUC weights
-        exit()
+
+        worst_list, shft_typs = collect_worst_item(
+            args=args, corruption_types=corruption_types, idx_cache=idx_cache, pred_cache=pred_cache,
+            output_cache=output_cache, step=epoch, logger=wandb_run
+        )
+        if epoch == args.max_epoch: break
+        print('Adapting...')
+        for aut in auts: aut.train()
+        for clsf in clsfs: clsf.train()
+        for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
+            adpt_set = ReefSetC(
+                root_path=args.adpt_set_path, corruption_type=corruption_type, corruption_level=args.corruption_level,
+                data_tf=data_tfs[0], label_tf=OneHot2Index()
+            )
+            adpt_set = PseudoLabelSet(dataset=adpt_set, label_position=1, pseudo_labels=worst_list[corruption_type])
+            adpt_set = Subset(dataset=adpt_set, id_list=list(worst_list[corruption_type].keys()))
+            adpt_loader = DataLoader(
+                dataset=adpt_set, batch_size=args.batch_size, shuffle=True, drop_last=False, 
+                num_workers=args.num_workers
+            )
+            aut, clsf = auts[idx], clsfs[idx]
+            optimizer = optimizers[idx]
+
+            for features, labels in adpt_loader:
+                if corruption_type not in shft_typs: break
+                if corruption_type in args.forbid_ls: break
+                features, labels = features.to(args.device), labels.to(args.device)
+                if features.shape[0] == 1:
+                    features = features.repeat(4, 1, 1)
+                    labels = labels.repeat(4, 1) 
+                
+                outputs, _ = clsf(aut(features)[0])
+                _, preds = torch.max(labels, dim=1)
+                clsf_loss = loss_fun(outputs, preds)
+
+                optimizer.zero_grad()
+                clsf_loss.backward()
+                optimizer.step()
+            
+            if epoch % args.interval == 0:
+                lr_scheduler(
+                    optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
+                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+                )
 
     wandb_run.finish()
     print('END!')
