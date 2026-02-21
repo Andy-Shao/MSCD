@@ -26,7 +26,7 @@ from ..util import build_model, load_weight, teach_inference
 
 def teacher_accu_analyzing(
     args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
-    data_tfs:list[nn.Module], step:int, logger
+    data_tfs:list[nn.Module], step:int, logger, softmax:bool=False
 ) -> None:
     print('Teachers ROC-AUC analyzing...')
     for aut in auts: aut.eval()
@@ -41,7 +41,8 @@ def teacher_accu_analyzing(
         num_workers=args.num_workers
     )
     adpt_roc_aucs = teach_inference(
-        args=args, corruption_types=corruption_types, auts=auts, clsfs=clsfs, data_loader=adpt_loader
+        args=args, corruption_types=corruption_types, auts=auts, clsfs=clsfs, data_loader=adpt_loader,
+        softmax=softmax
     )
     print({k:round(v, ndigits=4) for k,v in adpt_roc_aucs.items()})
     for k, v in adpt_roc_aucs.items():
@@ -57,7 +58,8 @@ def teacher_accu_analyzing(
         num_workers=args.num_workers
     )
     roc_aucs = teach_inference(
-        args=args, corruption_types=corruption_types, auts=auts, clsfs=clsfs, data_loader=eval_loader
+        args=args, corruption_types=corruption_types, auts=auts, clsfs=clsfs, data_loader=eval_loader,
+        softmax=softmax
     )
     print({k:round(v, ndigits=4) for k,v in roc_aucs.items()})
     for k,v in roc_aucs.items():
@@ -65,7 +67,7 @@ def teacher_accu_analyzing(
 
 def pseudo_labeling(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str], 
-        data_tfs:list[nn.Module], step:int, logger
+        data_tfs:list[nn.Module], step:int, logger, softmax:bool=False
     ):
     print("Pseudo-labeling...")
     for aut in auts: aut.eval()
@@ -106,7 +108,8 @@ def pseudo_labeling(
             else: output_cache[corruption_type].append(outputs)
         _, final_preds = torch.max(y_s, dim=1)
         y_true.append(indexes2oneHot(labels=labels, class_num=args.class_num))
-        y_score.append(y_s)
+        if softmax: y_score.append(nn.functional.softmax(y_s, dim=1))
+        else: y_score.append(y_s)
         if i==0: 
             pred_cache = [final_preds]
             idx_cache = [idx]
@@ -172,6 +175,7 @@ if __name__ == '__main__':
     args.lr_momentums = json.loads(args.lr_momentums)
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = args.forbid_ls.split(',')
+    args.y_score_softmax = True
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.TEACHER_ADAPTATION)
     make_unless_exits(args.output_path)
     torch.backends.cudnn.benchmark = True
@@ -225,11 +229,11 @@ if __name__ == '__main__':
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_accu_analyzing(
             args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types, data_tfs=data_tfs,
-            step=epoch, logger=wandb_run
+            step=epoch, logger=wandb_run, softmax=args.y_score_softmax
         )
         output_cache, pred_cache, idx_cache, pl_roc_auc = pseudo_labeling(
             args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types, data_tfs=data_tfs,
-            step=epoch, logger=wandb_run
+            step=epoch, logger=wandb_run, softmax=args.y_score_softmax
         )
         # TODO store the highest ROC-AUC weights
 

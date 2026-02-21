@@ -15,7 +15,7 @@ from AuT.lib.config import AuT_base
 
 def teach_inference(
     args:argparse.Namespace, corruption_types:list[str], auts:list[nn.Module], clsfs:list[nn.Module],
-    data_loader:DataLoader
+    data_loader:DataLoader, softmax:bool=False,
 ) -> dict[str, float]:
     for aut in auts: aut.eval()
     for clsf in clsfs: clsf.eval()
@@ -33,7 +33,10 @@ def teach_inference(
                 outputs, _ = clsf(aut(features)[0])
 
             y_trues[corruption_type].append(indexes2oneHot(labels=labels, class_num=args.class_num))
-            y_scores[corruption_type].append(outputs.detach().cpu())
+            if softmax:
+                y_scores[corruption_type].append(nn.functional.softmax(outputs.detach().cpu(), dim=1))
+            else:
+                y_scores[corruption_type].append(outputs.detach().cpu())
     for corruption_type in corruption_types:
         y_t = torch.concat(y_trues[corruption_type], dim=0)
         y_s = torch.concat(y_scores[corruption_type], dim=0)
