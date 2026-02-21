@@ -47,7 +47,7 @@ def teach_inference(
 
 def inference(
     args:argparse.Namespace, aut:FCETransform, clsf:AudioClassifier, data_loader:DataLoader,
-    tqdmable:bool=True
+    tqdmable:bool=True, softmax:bool=False
 ) -> float:
     aut.eval(); clsf.eval()
     if tqdmable: iterator = tqdm(enumerate(data_loader), total=len(data_loader))
@@ -60,7 +60,8 @@ def inference(
             outputs, _ = clsf(aut(features)[0])
 
         y_true.append(indexes2oneHot(labels=labels, class_num=args.class_num))
-        y_score.append(outputs.detach().cpu())
+        if softmax: y_score.append(nn.functional.softmax(outputs.detach().cpu(), dim=1))
+        else: y_score.append(outputs.detach().cpu())
     y_true = torch.concat(y_true, dim=0)
     y_score = torch.concat(y_score, dim=0)
     val_roc_auc = roc_auc_score(y_true=y_true.numpy(), y_score=y_score.numpy(), average='macro')
