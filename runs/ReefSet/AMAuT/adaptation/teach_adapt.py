@@ -146,7 +146,6 @@ if __name__ == '__main__':
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
 
-    # ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lrs', type=str)
     ap.add_argument('--lr_cardinality', type=int, default=40)
     ap.add_argument('--lr_gamma', type=int, default=10)
