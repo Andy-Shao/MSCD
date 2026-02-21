@@ -22,13 +22,6 @@ from lib.optimizer import build_optimizer, lr_scheduler
 from lib.loss import CrossEntropyLabelSmooth
 from ..utils import build_model, load_weight, inference, store_weight
 
-# def is_frozen(args:argparse.Namespace, epoch_num:int, crpt_typ:str) -> bool:
-#     if crpt_typ in args.forbid_ls:
-#         if args.unfrz_pos == -1: return True
-#         elif epoch_num >= args.unfrz_pos: return False
-#         else: return True
-#     else: return False
-
 def teacher_accu_analyzing(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
         data_tf:nn.Module, step:int, logger
