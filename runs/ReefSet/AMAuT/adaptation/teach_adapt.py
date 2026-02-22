@@ -149,7 +149,7 @@ if __name__ == '__main__':
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
 
-    ap.add_argument('--lrs', type=str)
+    ap.add_argument('--lr', type=float, default=1e-2)
     ap.add_argument('--lr_cardinality', type=int, default=40)
     ap.add_argument('--lr_gamma', type=int, default=10)
     ap.add_argument('--lr_threshold', type=int, default=1)
@@ -171,7 +171,6 @@ if __name__ == '__main__':
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.arch = 'AMAuT'
     args.elect_weights = json.loads(args.elect_weights)
-    args.lrs = json.loads(args.lrs)
     args.lr_momentums = json.loads(args.lr_momentums)
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = args.forbid_ls.split(',')
@@ -213,7 +212,7 @@ if __name__ == '__main__':
         load_weight(args=args, aut=aut, clsf=clsf, mode='adaptation', metaInfo=cmeta)
         auts.append(aut)
         clsfs.append(clsf)
-        optimizer = build_optimizer(lr=args.lrs[corruption_type], auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay)
+        optimizer = build_optimizer(lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay)
         optimizers.append(optimizer)
     data_tfs = [Components(transforms=[
         AudioClip(max_length=args.audio_length, mode='head', is_random=False),
@@ -245,7 +244,7 @@ if __name__ == '__main__':
         print('Adapting...')
         for aut in auts: aut.train()
         for clsf in clsfs: clsf.train()
-        for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
+        for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0, desc='Corruptions'):
             adpt_set = ReefSetC(
                 root_path=args.adpt_set_path, corruption_type=corruption_type, corruption_level=args.corruption_level,
                 data_tf=data_tfs[0], label_tf=OneHot2Index()
@@ -259,7 +258,7 @@ if __name__ == '__main__':
             aut, clsf = auts[idx], clsfs[idx]
             optimizer = optimizers[idx]
 
-            for features, labels in adpt_loader:
+            for features, labels in tqdm(adpt_loader, position=1, leave=False, desc=f'{corruption_type}-{args.corruption_level}'):
                 if corruption_type not in shft_typs: break
                 if corruption_type in args.forbid_ls: break
                 features, labels = features.to(args.device), labels.to(args.device)
