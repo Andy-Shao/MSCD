@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from torchaudio.transforms import MelSpectrogram
 
 from lib import constants
-from lib.utils import make_unless_exits, print_argparse, indexes2oneHot
+from lib.utils import make_unless_exits, print_argparse
 from lib.loss import CrossEntropyLabelSmooth
 from lib.corruption import CorruptionMeta
 from lib.optimizer import build_optimizer, lr_scheduler
@@ -96,7 +96,7 @@ def pseudo_labeling(
                 outputs, _ = clsf(aut(features)[0])
                 outputs = outputs.detach().cpu()
             _, preds = torch.max(outputs, dim=1)
-            preds = indexes2oneHot(labels=preds, class_num=args.class_num)
+            preds = nn.functional.one_hot(preds, num_classes=args.class_num)
             preds = preds * args.elect_weights[corruption_type]
             if j == 1: 
                 final_preds = preds
@@ -107,7 +107,7 @@ def pseudo_labeling(
             if i == 0: output_cache[corruption_type] = [outputs]
             else: output_cache[corruption_type].append(outputs)
         _, final_preds = torch.max(y_s, dim=1)
-        y_true.append(indexes2oneHot(labels=labels, class_num=args.class_num))
+        y_true.append(nn.functional.one_hot(labels, num_classes=args.class_num))
         if softmax: y_score.append(nn.functional.softmax(y_s, dim=1))
         else: y_score.append(y_s)
         if i==0: 
@@ -237,7 +237,7 @@ if __name__ == '__main__':
 
         worst_list, shft_typs = collect_worst_item(
             args=args, corruption_types=corruption_types, idx_cache=idx_cache, pred_cache=pred_cache,
-            output_cache=output_cache, step=epoch, logger=wandb_run
+            output_cache=output_cache, step=epoch, logger=wandb_run, feature_label=False
         )
         if epoch == args.max_epoch: break
         print('Adapting...')
@@ -263,11 +263,10 @@ if __name__ == '__main__':
                 features, labels = features.to(args.device), labels.to(args.device)
                 if features.shape[0] == 1:
                     features = features.repeat(4, 1, 1)
-                    labels = labels.repeat(4, 1) 
+                    labels = labels.repeat(4) 
                 
                 outputs, _ = clsf(aut(features)[0])
-                _, preds = torch.max(labels, dim=1)
-                clsf_loss = loss_fun(outputs, preds)
+                clsf_loss = loss_fun(outputs, labels)
 
                 optimizer.zero_grad()
                 clsf_loss.backward()
