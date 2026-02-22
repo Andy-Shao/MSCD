@@ -148,7 +148,7 @@ class IdxSet(Dataset):
         return tuple(ret)
     
 class PseudoLabelSet(Dataset):
-    def __init__(self, dataset:Dataset, pseudo_labels:dict[int, torch.Tensor], label_position:int=1):
+    def __init__(self, dataset:Dataset, pseudo_labels:dict[int, torch.Tensor]|dict[int, int], label_position:int=1):
         super().__init__()
         self.dataset = dataset
         self.pseudo_labels = pseudo_labels
@@ -162,6 +162,7 @@ class PseudoLabelSet(Dataset):
         data = self.dataset[index]
         data = list(data)
         pseudo_label = self.pseudo_labels[index]
-        pseudo_label = copy.deepcopy(pseudo_label)
+        if isinstance(pseudo_label, torch.Tensor):
+            pseudo_label = copy.deepcopy(pseudo_label)
         data[self.label_position] = pseudo_label
         return tuple(data)

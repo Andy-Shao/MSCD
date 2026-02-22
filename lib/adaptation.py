@@ -13,7 +13,7 @@ def is_frozen(args:argparse.Namespace, epoch_num:int, crpt_typ:str) -> bool:
 class WorstItemSearch:
     def __init__(
         self, idxs:torch.Tensor, preds:torch.Tensor, outputs:dict[str, torch.Tensor], K:int,
-        corruption_types:list[str]
+        corruption_types:list[str], feature_label:bool=True
     ):
         self.idxs = idxs
         self.preds = preds
@@ -21,6 +21,7 @@ class WorstItemSearch:
         assert K > 0, 'Unsupport'
         self.K = K
         self.corruption_types = corruption_types
+        self.feature_label = feature_label
         self.i = 0
     
     def __iter__(self):
@@ -37,7 +38,8 @@ class WorstItemSearch:
             tmp.append(opt)
         tmp = torch.concatenate(tmp, dim=0)
         _, indices = torch.sort(tmp[:, pred].clone(), descending=False)
-        label = tmp[indices[-1], :]
+        if self.feature_label: label = tmp[indices[-1], :]
+        else: label = int(pred)
 
         fail_check = (torch.max(tmp, dim=1)[1] != torch.tensor(([pred]*tmp.shape[0])))
         num_fail = fail_check.sum().item()
@@ -53,7 +55,7 @@ class WorstItemSearch:
     
 def collect_worst_item(
         args:argparse.Namespace, corruption_types:list[str], idx_cache:dict, pred_cache:dict,
-        output_cache:dict, step:int, logger
+        output_cache:dict, step:int, logger, feature_label:bool=True
     ) -> tuple[dict[str, dict], list[str]]:
     """return dict: key -> corruption type, value -> [idxs, labels]"""
     print('Scanning and finding the most worst K teachers...')
@@ -63,7 +65,8 @@ def collect_worst_item(
     for corruption_type in corruption_types:
         worst_list[corruption_type] = {}
     for idx, label, targets in tqdm(WorstItemSearch(
-        idxs=idx_cache, preds=pred_cache, outputs=output_cache, K=K, corruption_types=corruption_types
+        idxs=idx_cache, preds=pred_cache, outputs=output_cache, K=K, corruption_types=corruption_types,
+        feature_label=feature_label
     )):
         for target in targets:
             worst_item = worst_list[target]
