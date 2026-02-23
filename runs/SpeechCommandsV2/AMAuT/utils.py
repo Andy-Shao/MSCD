@@ -14,7 +14,7 @@ from AuT.lib.model import FCETransform, AudioClassifier
 def teach_inference(
     args:argparse.Namespace, corruption_types:list[str], auts:list[nn.Module], clsfs:list[nn.Module],
     data_loader:DataLoader
-) -> tuple[float, dict[str, float]]:
+) -> dict[str, float]:
     for aut in auts: aut.eval()
     for clsf in clsfs: clsf.eval()
     ttl_corrs, ttl_sizes = {it: 0. for it in corruption_types}, {it: 0. for it in corruption_types}
@@ -34,8 +34,7 @@ def teach_inference(
             ttl_sizes[corruption_type] += labels.shape[0]
     for corruption_type in corruption_types:
         accus[corruption_type] = ttl_corrs[corruption_type]/ttl_sizes[corruption_type]
-    global_accu = sum([v for k,v in ttl_corrs.items()])/sum([v for k,v in ttl_sizes.items()])
-    return global_accu, accus
+    return accus
 
 def mlt_inference(
     args:argparse.Namespace, corruption_types:list[str], aut:nn.Module, clsf:nn.Module, 

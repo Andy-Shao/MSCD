@@ -75,11 +75,9 @@ def pseudo_labeling(
             with torch.inference_mode():
                 outputs, _ = clsf(aut(features)[0])
                 outputs = outputs.detach().cpu()
-            _, preds = torch.max(outputs, dim=1)
-            preds = indexes2oneHot(labels=preds, class_num=args.class_num)
-            preds = preds * args.elect_weights[corruption_type]
+            preds = nn.functional.softmax(outputs, dim=1) * args.elect_weights[corruption_type]
             if i == 1: final_preds = preds
-            else: final_preds = final_preds + preds
+            else: final_preds += preds
             if j == 0: output_cache[corruption_type] = [outputs]
             else: output_cache[corruption_type].append(outputs)
         _, final_preds = torch.max(final_preds, dim=1)
@@ -240,7 +238,7 @@ if __name__ == '__main__':
         print('Adapting...')
         for aut in auts: aut.train()
         for clsf in clsfs: clsf.train()
-        for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
+        for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
             adpt_set = SpeechCommandsV2C(
                 root_path=args.adpt_set_path, corruption_level=args.corruption_level, 
                 corruption_type=corruption_type, data_tf=Components(transforms=[
@@ -262,7 +260,7 @@ if __name__ == '__main__':
             aut, clsf = auts[idx], clsfs[idx]
             optimizer = optimizers[idx]
 
-            for features, labels in adpt_loader:
+            for features, labels in tqdm(adpt_loader, desc=f'{corruption_type}-{args.corruption_level}', position=1, leave=False):
                 if corruption_type not in shft_typs: break
                 # if corruption_type in args.forbid_ls: break
                 if is_frozen(args=args, epoch_num=epoch, crpt_typ=corruption_type): break
