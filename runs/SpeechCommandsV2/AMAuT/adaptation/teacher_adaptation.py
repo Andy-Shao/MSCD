@@ -293,7 +293,7 @@ if __name__ == '__main__':
                         elect_weights[k] = elect_weight
                     else: elect_weights[k] = wgt
                 args.elect_weights = elect_weights
-                args.rewgt_int = max(7, args.rewgt_int-2)
+                args.rewgt_int = 5
 
     wandb_run.finish()
     print('END!')
