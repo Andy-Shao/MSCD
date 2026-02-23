@@ -114,6 +114,7 @@ if __name__ == '__main__':
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
     ap.add_argument('--elect_weights', type=str)
     ap.add_argument('--rewgt_int', type=int, default=10)
+    ap.add_argument('--rewgt_threshold', type=float, default=1.1)
     ap.add_argument('--num_of_shft', type=int, default=3, help='maximum number of shifting teachers')
     ap.add_argument('--fail_coll_lim', type=int, default=3, help='maximum number of fail prediction be choosed in worst list')
     ap.add_argument('--max_epoch', type=int, default=20)
@@ -288,7 +289,7 @@ if __name__ == '__main__':
                 for k, wgt in args.elect_weights.items():
                     if wgt > 1.: 
                         elect_weight = ((wgt-1.)/2.) + 1.
-                        if elect_weight < 1.1: elect_weight = 1.
+                        if elect_weight < args.rewgt_threshold: elect_weight = 1.
                         elect_weights[k] = elect_weight
                     else: elect_weights[k] = wgt
                 args.elect_weights = elect_weights
