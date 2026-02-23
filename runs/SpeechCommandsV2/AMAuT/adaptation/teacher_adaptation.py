@@ -20,40 +20,69 @@ from lib.corruption import CorruptionMeta
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.loss import CrossEntropyLabelSmooth
-from ..utils import build_model, load_weight, inference, store_weight
+from ..utils import build_model, load_weight, store_weight, teach_inference
 
 def teacher_accu_analyzing(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
-        data_tf:nn.Module, step:int, logger
+        data_tfs:list[nn.Module], step:int, logger
     ):
     print('Teacher accuracy analyzing...')
-    for aut in auts: aut.eval()
-    for clsf in clsfs: clsf.eval()
-    accu_dic = {}
-    for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
-        adpt_set = SpeechCommandsV2C(
-            root_path=args.adpt_set_path, corruption_level=args.corruption_level, 
-            corruption_type=corruption_type, data_tf=data_tf
-        )
-        adpt_loader = DataLoader(
-            dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
-            num_workers=args.num_workers
-        )
-        accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=adpt_loader, tqdmable=False)
-        logger.log(data={f'Adaptation/{corruption_type} Accuracy': accu}, step=step)
-        accu_dic[f'{corruption_type}-{args.corruption_level}']=round(accu, ndigits=4)
+    print('Adaptation Set')
+    adpt_set = SpeechCommandsV2C(
+        root_path=args.adpt_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types,
+        data_tf=data_tfs
+    )
+    adpt_loader = DataLoader(
+        dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
+        num_workers=args.num_workers
+    )
+    adpt_accus = teach_inference(
+        args=args, corruption_types=corruption_types, auts=auts, clsfs=clsfs, data_loader=adpt_loader
+    )
+    print({k:round(v, ndigits=4) for k,v in adpt_accus.items()})
+    for corruption_type in corruption_types:
+        logger.log(data={f'Adaptation/{corruption_type} Accuracy': adpt_accus[corruption_type]}, step=step)
 
-        eval_set = SpeechCommandsV2C(
-            root_path=args.eval_set_path, corruption_level=args.corruption_level, 
-            corruption_type=corruption_type, data_tf=data_tf
-        )
-        eval_loader = DataLoader(
-            dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
-            num_workers=args.num_workers
-        )
-        accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=eval_loader, tqdmable=False)
-        logger.log(data={f'Evaluation/{corruption_type} Accuracy': accu}, step=step)
-    print(accu_dic)
+    print('Evaluation set')
+    eval_set = SpeechCommandsV2C(
+        root_path=args.eval_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types,
+        data_tf=data_tfs
+    )
+    eval_loader = DataLoader(
+        dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
+        num_workers=args.num_workers
+    )
+    eval_accus = teach_inference(
+        args=args, corruption_types=corruption_types, auts=auts, clsfs=clsfs, data_loader=eval_loader
+    )
+    print({k:round(v, ndigits=4) for k,v in eval_accus.items()})
+    for corruption_type in corruption_types:
+        logger.log(data={f'Evaluation/{corruption_type} Accuracy': eval_accus[corruption_type]}, step=step)
+    # accu_dic = {}
+    # for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
+    #     adpt_set = SpeechCommandsV2C(
+    #         root_path=args.adpt_set_path, corruption_level=args.corruption_level, 
+    #         corruption_type=corruption_type, data_tf=data_tf
+    #     )
+    #     adpt_loader = DataLoader(
+    #         dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
+    #         num_workers=args.num_workers
+    #     )
+    #     accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=adpt_loader, tqdmable=False)
+    #     logger.log(data={f'Adaptation/{corruption_type} Accuracy': accu}, step=step)
+    #     accu_dic[f'{corruption_type}-{args.corruption_level}']=round(accu, ndigits=4)
+
+    #     eval_set = SpeechCommandsV2C(
+    #         root_path=args.eval_set_path, corruption_level=args.corruption_level, 
+    #         corruption_type=corruption_type, data_tf=data_tf
+    #     )
+    #     eval_loader = DataLoader(
+    #         dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
+    #         num_workers=args.num_workers
+    #     )
+    #     accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=eval_loader, tqdmable=False)
+    #     logger.log(data={f'Evaluation/{corruption_type} Accuracy': accu}, step=step)
+    # print(accu_dic)
 
 def pseudo_labeling(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], data_loader:DataLoader,
@@ -208,14 +237,7 @@ if __name__ == '__main__':
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_accu_analyzing(
             args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types, step=epoch, logger=wandb_run,
-            data_tf=Components(transforms=[
-                MelSpectrogram(
-                    sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
-                    n_mels=args.n_mels, mel_scale=mel_scale
-                ),
-                AmplitudeToDB(top_db=80., max_out=2.),
-                FrequenceTokenTransformer()
-            ])
+            data_tfs=data_tfs
         )
         output_cache, pred_cache, idx_cache, pseudo_accu = pseudo_labeling(
             args=args, auts=auts, clsfs=clsfs, data_loader=sc2_c_loader, corruption_types=corruption_types,
@@ -284,7 +306,7 @@ if __name__ == '__main__':
                     optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
                     gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
                 )
-            if epoch % args.rewgt_int == 0 and epoch != 0:
+            if args.rewgt_int > 0 and epoch % args.rewgt_int == 0 and epoch != 0:
                 elect_weights = {}
                 for k, wgt in args.elect_weights.items():
                     if wgt > 1.: 
