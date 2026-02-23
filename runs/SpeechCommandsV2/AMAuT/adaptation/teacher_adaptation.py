@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torchaudio.transforms import MelSpectrogram
 
 from lib import constants
-from lib.utils import make_unless_exits, print_argparse, indexes2oneHot
+from lib.utils import make_unless_exits, print_argparse
 from lib.adaptation import collect_worst_item, is_frozen
 from lib.dataset import IdxSet, Subset, PseudoLabelSet
 from lib.spSet import SpeechCommandsV2C
@@ -119,6 +119,7 @@ if __name__ == '__main__':
     ap.add_argument('--max_epoch', type=int, default=20)
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
+    ap.add_argument('--str_pos', type=int, default=10)
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -219,7 +220,7 @@ if __name__ == '__main__':
             args=args, auts=auts, clsfs=clsfs, data_loader=sc2_c_loader, corruption_types=corruption_types,
             step=epoch, logger=wandb_run
         )
-        if max_pseudo_accu <= pseudo_accu:
+        if max_pseudo_accu <= pseudo_accu and epoch >= args.str_pos:
             max_pseudo_accu = pseudo_accu
             for i, corruption_type in enumerate(corruption_types):
                 aut, clsf = auts[i], clsfs[i]
@@ -232,7 +233,7 @@ if __name__ == '__main__':
         worst_list, shft_typs = collect_worst_item(
             args=args, corruption_types=corruption_types, idx_cache=idx_cache, 
             pred_cache=pred_cache, output_cache=output_cache, step=epoch,
-            logger=wandb_run
+            logger=wandb_run, feature_label=False
         )
         if epoch == args.max_epoch: break
         print('Adapting...')
@@ -267,11 +268,10 @@ if __name__ == '__main__':
                 features, labels = features.to(args.device), labels.to(args.device)  
                 if features.shape[0] == 1:
                     features = features.repeat(4, 1, 1)
-                    labels = labels.repeat(4, 1)  
+                    labels = labels.repeat(4)  
 
                 outputs, _ = clsf(aut(features)[0])
-                _, preds = torch.max(labels, dim=1)
-                clsf_loss = loss_fun(outputs, preds)
+                clsf_loss = loss_fun(outputs, labels)
 
                 optimizer.zero_grad()
                 clsf_loss.backward()
