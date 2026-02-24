@@ -284,13 +284,17 @@ if __name__ == '__main__':
             if args.rewgt_int > 0 and epoch % args.rewgt_int == 0 and epoch != 0:
                 elect_weights = {}
                 for k, wgt in args.elect_weights.items():
-                    if wgt > 1.: 
-                        elect_weight = ((wgt-1.)/2.) + 1.
-                        if elect_weight < args.rewgt_threshold: elect_weight = 1.
-                        elect_weights[k] = elect_weight
+                    # if wgt > 1.: 
+                    #     elect_weight = ((wgt-1.)/2.) + 1.
+                    #     if elect_weight < args.rewgt_threshold: elect_weight = 1.
+                    #     elect_weights[k] = elect_weight
+                    if k in ['END1', 'END2', 'WHN', 'ENQ'] and wgt < 2.:
+                        elect_weights[k] = 2.
+                    elif k in ['PSH', 'ENSC'] and wgt < 1.5:
+                        elect_weights[k] = 1.5
                     else: elect_weights[k] = wgt
                 args.elect_weights = elect_weights
-                args.rewgt_int = 5
+                args.rewgt_int = -1
 
     wandb_run.finish()
     print('END!')
