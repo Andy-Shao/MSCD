@@ -101,9 +101,6 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
             with torch.inference_mode():
                 outputs, _ = clsf(aut(features)[0])
                 outputs = outputs.detach().cpu()
-            #     _, preds = torch.max(outputs.detach().cpu(), dim=1)
-            # preds = indexes2oneHot(labels=preds, class_num=args.class_num)
-            # preds = preds * args.elect_weights[corruption_type]
             preds = nn.functional.softmax(outputs, dim=1) * args.elect_weights[corruption_type]
             if j == 1: final_preds = preds
             else: final_preds = final_preds + preds
@@ -119,7 +116,6 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
     pred_cache = torch.concat(pred_cache, dim=0)
     print(f'Pseudo-labeling accuracy is: {ttl_corr/ttl_size:.4f}')
     auts=None; clsfs=None
-    exit()
 
     print('Calculating pseudo-labels...')
     pseudo_labels = {} # key -> idx, value -> smoothed label
