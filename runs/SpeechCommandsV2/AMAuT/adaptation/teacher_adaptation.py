@@ -58,31 +58,6 @@ def teacher_accu_analyzing(
     print({k:round(v, ndigits=4) for k,v in eval_accus.items()})
     for corruption_type in corruption_types:
         logger.log(data={f'Evaluation/{corruption_type} Accuracy': eval_accus[corruption_type]}, step=step)
-    # accu_dic = {}
-    # for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types)):
-    #     adpt_set = SpeechCommandsV2C(
-    #         root_path=args.adpt_set_path, corruption_level=args.corruption_level, 
-    #         corruption_type=corruption_type, data_tf=data_tf
-    #     )
-    #     adpt_loader = DataLoader(
-    #         dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
-    #         num_workers=args.num_workers
-    #     )
-    #     accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=adpt_loader, tqdmable=False)
-    #     logger.log(data={f'Adaptation/{corruption_type} Accuracy': accu}, step=step)
-    #     accu_dic[f'{corruption_type}-{args.corruption_level}']=round(accu, ndigits=4)
-
-    #     eval_set = SpeechCommandsV2C(
-    #         root_path=args.eval_set_path, corruption_level=args.corruption_level, 
-    #         corruption_type=corruption_type, data_tf=data_tf
-    #     )
-    #     eval_loader = DataLoader(
-    #         dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
-    #         num_workers=args.num_workers
-    #     )
-    #     accu = inference(args=args, aut=auts[idx], clsf=clsfs[idx], data_loader=eval_loader, tqdmable=False)
-    #     logger.log(data={f'Evaluation/{corruption_type} Accuracy': accu}, step=step)
-    # print(accu_dic)
 
 def pseudo_labeling(
         args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], data_loader:DataLoader,

@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torchaudio.transforms import MelSpectrogram
 
 from lib import constants
-from lib.utils import make_unless_exits, print_argparse, indexes2oneHot
+from lib.utils import make_unless_exits, print_argparse
 from lib.spSet import SpeechCommandsV2C
 from lib.corruption import CorruptionMeta
 from lib.dataset import IdxSet, PseudoLabelSet
@@ -100,9 +100,11 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
             corruption_type = corruption_types[j-1]
             with torch.inference_mode():
                 outputs, _ = clsf(aut(features)[0])
-                _, preds = torch.max(outputs.detach().cpu(), dim=1)
-            preds = indexes2oneHot(labels=preds, class_num=args.class_num)
-            preds = preds * args.elect_weights[corruption_type]
+                outputs = outputs.detach().cpu()
+            #     _, preds = torch.max(outputs.detach().cpu(), dim=1)
+            # preds = indexes2oneHot(labels=preds, class_num=args.class_num)
+            # preds = preds * args.elect_weights[corruption_type]
+            preds = nn.functional.softmax(outputs, dim=1) * args.elect_weights[corruption_type]
             if j == 1: final_preds = preds
             else: final_preds = final_preds + preds
         ttl_corr += (torch.max(final_preds, dim=1)[1]==labels).sum().item()
@@ -117,6 +119,7 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
     pred_cache = torch.concat(pred_cache, dim=0)
     print(f'Pseudo-labeling accuracy is: {ttl_corr/ttl_size:.4f}')
     auts=None; clsfs=None
+    exit()
 
     print('Calculating pseudo-labels...')
     pseudo_labels = {} # key -> idx, value -> smoothed label
