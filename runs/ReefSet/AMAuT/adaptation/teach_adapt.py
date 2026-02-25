@@ -22,7 +22,7 @@ from lib.dataset import IdxSet, PseudoLabelSet, Subset
 from lib.component import Components, FrequenceTokenTransformer, AmplitudeToDB, OneHot2Index
 from lib.component import AudioClip
 from lib.adaptation import collect_worst_item
-from ..util import build_model, load_weight, teach_inference
+from ..util import build_model, load_weight, teach_inference, store_weight
 
 def teacher_accu_analyzing(
     args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
@@ -223,6 +223,7 @@ if __name__ == '__main__':
         FrequenceTokenTransformer()
     ])] * len(corruption_types)
 
+    max_roc_auc = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_accu_analyzing(
@@ -233,7 +234,16 @@ if __name__ == '__main__':
             args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types, data_tfs=data_tfs,
             step=epoch, logger=wandb_run, softmax=args.y_score_softmax
         )
-        # TODO store the highest ROC-AUC weights
+        # store the highest ROC-AUC weights
+        if max_roc_auc <= pl_roc_auc:
+            max_roc_auc = pl_roc_auc
+            for i, corruption_type in enumerate(corruption_types):
+                teach_aut, teach_clsf = auts[i], clsfs[i]
+                store_weight(
+                    args=args, aut=teach_aut, clsf=teach_clsf, mode='adaptation', 
+                    metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
+                    root_path=args.output_path
+                )
 
         worst_list, shft_typs = collect_worst_item(
             args=args, corruption_types=corruption_types, idx_cache=idx_cache, pred_cache=pred_cache,
