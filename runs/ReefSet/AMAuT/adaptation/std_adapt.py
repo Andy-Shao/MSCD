@@ -6,6 +6,7 @@ import wandb
 import random
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
+import copy
 
 import torch
 from torch import nn
@@ -102,12 +103,12 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
             if j == 1: final_preds = preds
             else: final_preds += preds
         if i == 0:
-            y_t = [nn.functional.one_hot(labels, num_classes=args.class_num)]
+            y_t = [copy.deepcopy(labels)]
             y_s = [nn.functional.softmax(final_preds, dim=1)]
             idx_cache = [idxs]
             pred_cache = [final_preds]
         else:
-            y_t.append(nn.functional.one_hot(labels, num_classes=args.class_num))
+            y_t.append(copy.deepcopy(labels))
             y_s.append(nn.functional.softmax(final_preds, dim=1))
             idx_cache.append(idxs)
             pred_cache.append(final_preds)
@@ -115,7 +116,7 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
     pred_cache = torch.concat(pred_cache, dim=0)
     y_t = torch.concat(y_t, dim=0)
     y_s = torch.concat(y_s, dim=0)
-    pl_roc_auc = roc_auc_score(y_true=y_t.numpy(), y_score=y_s.numpy(), average='macro')
+    pl_roc_auc = roc_auc_score(y_true=y_t.numpy(), y_score=y_s.numpy(), average='macro', multi_class='ovr')
     print(f'Teacher election pseudo-labeling ROC-AUC is: {pl_roc_auc:.4f}')
     teach_auts = None; teach_clsfs = None
 
@@ -150,6 +151,7 @@ if __name__ == '__main__':
     ap.add_argument('--pseudo_threshold', type=float, default=6.0)
     ap.add_argument('--hi_def_smth', type=float, default=.1)
     ap.add_argument('--lw_def_smth', type=float, default=.2)
+    ap.add_argument('--ctr_rt', type=float, default=1.)
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -259,8 +261,9 @@ if __name__ == '__main__':
                 clsf_loss = clsf_loss.mean()
 
                 # contrastive loss
-                # ctr_loss = ctr_loss_fun(outputs, labels)
-                ctr_loss = torch.tensor(0.).to(args.device)
+                if args.ctr_rt > 0.:
+                    ctr_loss = ctr_loss_fun(outputs, labels)
+                else: ctr_loss = torch.tensor(0.).to(args.device)
 
                 if i == 0:
                     loss = clsf_loss + ctr_loss

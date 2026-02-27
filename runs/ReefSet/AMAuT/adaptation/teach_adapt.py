@@ -6,6 +6,7 @@ import random
 from tqdm import tqdm
 import wandb
 from sklearn.metrics import roc_auc_score
+import copy
 
 import torch
 from torch import nn
@@ -107,7 +108,7 @@ def pseudo_labeling(
             if i == 0: output_cache[corruption_type] = [outputs]
             else: output_cache[corruption_type].append(outputs)
         _, final_preds = torch.max(y_s, dim=1)
-        y_true.append(nn.functional.one_hot(labels, num_classes=args.class_num))
+        y_true.append(copy.deepcopy(labels))
         if softmax: y_score.append(nn.functional.softmax(y_s, dim=1))
         else: y_score.append(y_s)
         if i==0: 
@@ -118,7 +119,7 @@ def pseudo_labeling(
             idx_cache.append(idx)
     y_true = torch.concat(y_true, dim=0)
     y_score = torch.concat(y_score, dim=0)
-    pl_roc_auc = roc_auc_score(y_true=y_true.numpy(), y_score=y_score.numpy(), average='macro')
+    pl_roc_auc = roc_auc_score(y_true=y_true.numpy(), y_score=y_score.numpy(), average='macro', multi_class='ovr')
     print(f'Teacher election pseudo-labeling ROC-AUC is: {pl_roc_auc:.4f}')
     logger.log(data={'Adaptation/Pseudo-label ROC-AUC': pl_roc_auc}, step=step)
 
