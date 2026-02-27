@@ -13,6 +13,38 @@ from lib.corruption import CorruptionMeta
 from AuT.lib.model import FCETransform, AudioClassifier
 from AuT.lib.config import AuT_base
 
+def mlt_inference(
+    args:argparse.Namespace, corruption_types:list[str], aut:nn.Module, clsf:nn.Module, 
+    data_loader:DataLoader
+) -> tuple[float, dict[str, float]]:
+    aut.eval(); clsf.eval()
+    y_ts, y_ss = {k:[] for k in corruption_types}, {k:[] for k in corruption_types}
+    roc_aucs = {}
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            features = data[i].to(args.device)
+            corruption_type = corruption_types[i]
+            with torch.inference_mode():
+                outputs, _ = clsf(aut(features)[0])
+                outputs = outputs.detach().cpu()
+            y_ts[corruption_type].append(nn.functional.one_hot(labels, num_classes=args.class_num))
+            y_ss[corruption_type].append(nn.functional.softmax(outputs, dim=1))
+    for i, corruption_type in enumerate(corruption_types):
+        y_t = torch.concat(y_ts[corruption_type], dim=0)
+        y_s = torch.concat(y_ss[corruption_type], dim=0)
+        roc_aucs[corruption_type] = roc_auc_score(y_true=y_t.numpy(), y_score=y_s.numpy(), average='macro')
+        if i == 0:
+            y_true = [y_t]
+            y_score = [y_s]
+        else:
+            y_true.append(y_t)
+            y_score.append(y_s)
+    y_true = torch.concat(y_true, dim=0)
+    y_score = torch.concat(y_score, dim=0)
+    global_roc_auc = roc_auc_score(y_true=y_true.numpy(), y_score=y_score.numpy(), average='macro')
+    return global_roc_auc, roc_aucs
+
 def teach_inference(
     args:argparse.Namespace, corruption_types:list[str], auts:list[nn.Module], clsfs:list[nn.Module],
     data_loader:DataLoader, softmax:bool=False,
