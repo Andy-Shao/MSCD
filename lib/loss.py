@@ -2,13 +2,15 @@ import torch
 from torch import nn
 
 class ContrastiveLoss(nn.Module):
-    def __init__(self, hi_def_smth:float, class_num:int, device:str, eps:float=1e-8):
+    def __init__(self, hi_def_smth:float, class_num:int, device:str, eps:float=1e-8, dist='l2'):
         super().__init__()
         self.log_softmax = nn.LogSoftmax(dim=1)
         self.hi_def_smth = hi_def_smth
         self.class_num = class_num
         self.device = device
         self.eps = eps
+        assert dist in ['cos_sim', 'l2', 'sq_l2'], 'No support'
+        self.dist = dist
 
     def __marking__(self, outs:torch.Tensor, pseudo_labels:torch.Tensor) -> torch.Tensor:
         hi_mark = (1-self.hi_def_smth)*torch.eye(self.class_num)[0] + self.hi_def_smth/self.class_num
@@ -26,13 +28,19 @@ class ContrastiveLoss(nn.Module):
         return marks
 
     def forward(self, x:torch.Tensor, pseudo_labels:torch.Tensor) -> torch.Tensor:
-        # x_norm = nn.functional.normalize(x, p=2, dim=1)
-        # cos_sim = x_norm @ x_norm.T # self-consine similarity
-        x_softmax = self.log_softmax(x)
-        l2_dist = torch.cdist(x1=x_softmax, x2=x_softmax, p=2)
+        if self.dist == 'cos_sim':
+            x_norm = nn.functional.normalize(x, p=2, dim=1)
+            dist_val = x_norm @ x_norm.T # self-consine similarity
+        elif self.dist == 'l2':
+            x_softmax = self.log_softmax(x)
+            dist_val = torch.cdist(x1=x_softmax, x2=x_softmax, p=2)
+        elif self.dist == 'sq_l2':
+            x_softmax = self.log_softmax(x)
+            x_norm_sq = (x_softmax ** 2).sum(dim=1, keepdim=True)
+            dist_val = x_norm_sq + x_norm_sq.T - 2 * x_softmax @ x_softmax.T
         marks = self.__marking__(outs=x, pseudo_labels=pseudo_labels)
         mark_norm = marks / (marks.sum(dim=1, keepdim=True)+self.eps)
-        loss = mark_norm * self.log_softmax(l2_dist)
+        loss = mark_norm * self.log_softmax(dist_val)
         loss = loss.sum(dim=1)
         loss = - loss.mean()
         return loss
