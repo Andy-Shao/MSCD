@@ -11,7 +11,6 @@ class ContrastiveLoss(nn.Module):
         self.class_num = class_num
         self.device = device
         self.eps = eps
-        assert dist in ['cos_sim', 'l2', 'sq_l2'], 'No support'
         self.dist = dist
 
     def __marking__(self, outs:torch.Tensor, pseudo_labels:torch.Tensor) -> torch.Tensor:
@@ -34,17 +33,18 @@ class ContrastiveLoss(nn.Module):
             x_norm = nn.functional.normalize(x, p=2, dim=1)
             dist_val = x_norm @ x_norm.T # self-consine similarity
         elif self.dist == 'l2':
-            x_softmax = self.log_softmax(x)
-            dist_val = torch.cdist(x1=x_softmax, x2=x_softmax, p=2)
+            x_norm = nn.functional.normalize(x, p=2, dim=1)
+            dist_val = torch.cdist(x1=x_norm, x2=x_norm, p=2)
         elif self.dist == 'sq_l2':
-            x_softmax = self.log_softmax(x)
-            x_norm_sq = (x_softmax ** 2).sum(dim=1, keepdim=True)
-            dist_val = x_norm_sq + x_norm_sq.T - 2 * x_softmax @ x_softmax.T
+            x_norm = nn.functional.normalize(x, p=2, dim=1)
+            dist_val = 2 - 2 * (x_norm @ x_norm.T)
+            dist_val = dist_val.clamp_min_(0)
         marks = self.__marking__(outs=x, pseudo_labels=pseudo_labels)
         mark_norm = marks / (marks.sum(dim=1, keepdim=True)+self.eps)
         loss = mark_norm * self.log_softmax(dist_val)
         loss = loss.sum(dim=1)
-        loss = - loss.mean()
+        loss = loss.mean()
+        if self.dist == 'cos_sim': loss = - loss
         return loss
 
 def mse_loss(o1:torch.Tensor, o2:torch.Tensor) -> torch.Tensor:

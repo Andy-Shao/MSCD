@@ -148,6 +148,8 @@ if __name__ == '__main__':
     ap.add_argument('--pseudo_threshold', type=float, default=6.0)
     ap.add_argument('--hi_def_smth', type=float, default=.1)
     ap.add_argument('--lw_def_smth', type=float, default=.2)
+    ap.add_argument('--ctr_rt', type=float, default=1.)
+    ap.add_argument('--ctr_dist', type=str, default='l2', choices=['cos_sim', 'l2', 'sq_l2'])
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -230,7 +232,9 @@ if __name__ == '__main__':
     optimizer = build_optimizer(
         lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay
     )
-    ctr_loss_fun = ContrastiveLoss(hi_def_smth=args.hi_def_smth, class_num=args.class_num, device=args.device)
+    ctr_loss_fun = ContrastiveLoss(
+        hi_def_smth=args.hi_def_smth, class_num=args.class_num, device=args.device, dist=args.ctr_dist
+    )
 
     print('Student Adaptation')
     max_accu = 0.
@@ -270,7 +274,9 @@ if __name__ == '__main__':
                 clsf_loss = clsf_loss.mean()
 
                 # contrastive loss
-                ctr_loss = ctr_loss_fun(outputs, labels)
+                if args.ctr_rt > 0.:
+                    ctr_loss = args.ctr_rt * ctr_loss_fun(outputs, labels)
+                else: ctr_loss = torch.tensor(0.).to(device=args.device)
 
                 if i == 0:
                     loss = clsf_loss + ctr_loss
