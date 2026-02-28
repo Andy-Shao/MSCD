@@ -1,8 +1,10 @@
+from typing import Literal
+
 import torch
 from torch import nn
 
 class ContrastiveLoss(nn.Module):
-    def __init__(self, hi_def_smth:float, class_num:int, device:str, eps:float=1e-8, dist='l2'):
+    def __init__(self, hi_def_smth:float, class_num:int, device:str, eps:float=1e-8, dist:Literal['cos_sim', 'l2', 'sq_l2']='l2'):
         super().__init__()
         self.log_softmax = nn.LogSoftmax(dim=1)
         self.hi_def_smth = hi_def_smth
