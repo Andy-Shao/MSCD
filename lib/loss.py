@@ -40,7 +40,7 @@ class ContrastiveLoss(nn.Module):
             dist_val = 2 - 2 * (x_norm @ x_norm.T)
             dist_val = dist_val.clamp_min_(0)
         marks = self.__marking__(outs=x, pseudo_labels=pseudo_labels)
-        mark_norm = marks / (marks.sum(dim=1, keepdim=True)+self.eps)
+        mark_norm = marks / (marks.abs().sum(dim=1, keepdim=True)+self.eps)
         loss = mark_norm * self.log_softmax(dist_val)
         loss = loss.sum(dim=1)
         loss = loss.mean()
