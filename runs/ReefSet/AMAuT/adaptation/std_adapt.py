@@ -266,7 +266,7 @@ if __name__ == '__main__':
 
                 # contrastive loss
                 if args.ctr_rt > 0.:
-                    ctr_loss = ctr_loss_fun(outputs, labels)
+                    ctr_loss = args.ctr_rt * ctr_loss_fun(outputs, labels)
                 else: ctr_loss = torch.tensor(0.).to(args.device)
 
                 if i == 0:
