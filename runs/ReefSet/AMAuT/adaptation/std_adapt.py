@@ -22,6 +22,7 @@ from lib.acousSet import ReefSetC
 from lib.dataset import IdxSet, PseudoLabelSet
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.loss import ContrastiveLoss
+from lib.adaptation import amaut_freeze
 from ..util import load_weight, build_model, mlt_inference, store_weight
 
 def std_roc_auc_analyzing(
@@ -251,7 +252,8 @@ if __name__ == '__main__':
         
         if epoch >= args.max_epoch: break
         print('Adaptating...')
-        std_aut.eval(); std_clsf.train()
+        std_aut.train(); std_clsf.train()
+        amaut_freeze(model=std_aut, drop=False)
         ttl_loss = 0.; ttl_clsf_loss = 0.; ttl_ctr_loss = 0.
         for adpt_data in tqdm(adpt_loader):
             labels = adpt_data[-1].to(args.device)
