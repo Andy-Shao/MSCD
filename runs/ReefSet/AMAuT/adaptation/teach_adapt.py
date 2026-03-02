@@ -254,7 +254,7 @@ if __name__ == '__main__':
         print('Adapting...')
         for aut in auts: 
             aut.train()
-            amaut_freeze(model=aut)
+            amaut_freeze(model=aut, drop=False)
         for clsf in clsfs: clsf.train()
         for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0, desc='Corruptions'):
             adpt_set = ReefSetC(
