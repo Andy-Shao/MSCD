@@ -252,7 +252,7 @@ if __name__ == '__main__':
         )
         if epoch == args.max_epoch: break
         print('Adapting...')
-        for aut in auts: aut.train()
+        for aut in auts: aut.eval()
         for clsf in clsfs: clsf.train()
         for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0, desc='Corruptions'):
             adpt_set = ReefSetC(
