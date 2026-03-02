@@ -22,7 +22,7 @@ from lib.acousSet import ReefSetC
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
 from lib.component import Components, FrequenceTokenTransformer, AmplitudeToDB, OneHot2Index
 from lib.component import AudioClip
-from lib.adaptation import collect_worst_item
+from lib.adaptation import collect_worst_item, amaut_freeze
 from ..util import build_model, load_weight, teach_inference, store_weight
 
 def teacher_accu_analyzing(
@@ -252,7 +252,9 @@ if __name__ == '__main__':
         )
         if epoch == args.max_epoch: break
         print('Adapting...')
-        for aut in auts: aut.eval()
+        for aut in auts: 
+            aut.train()
+            amaut_freeze(model=aut)
         for clsf in clsfs: clsf.train()
         for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0, desc='Corruptions'):
             adpt_set = ReefSetC(

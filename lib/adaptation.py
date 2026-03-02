@@ -2,6 +2,14 @@ import argparse
 from tqdm import tqdm
 
 import torch
+from torch import nn
+
+def amaut_freeze(model:nn.Module, batch:bool=True, drop:bool=True):
+    for component in model.modules():
+        if isinstance(component, nn.BatchNorm1d) and batch:
+            component.eval()
+        elif isinstance(component, nn.Dropout) and drop:
+            component.eval()
 
 def is_frozen(args:argparse.Namespace, epoch_num:int, crpt_typ:str) -> bool:
     if crpt_typ in args.forbid_ls:
