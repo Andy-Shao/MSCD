@@ -13,7 +13,7 @@ from torchaudio.transforms import MelSpectrogram
 
 from lib import constants
 from lib.utils import make_unless_exits, print_argparse
-from lib.adaptation import collect_worst_item, is_frozen
+from lib.adaptation import collect_worst_item, is_frozen, amaut_freeze
 from lib.dataset import IdxSet, Subset, PseudoLabelSet
 from lib.spSet import SpeechCommandsV2C
 from lib.corruption import CorruptionMeta
@@ -117,8 +117,7 @@ if __name__ == '__main__':
     ap.add_argument('--adpt_wght_pth', type=str)
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
     ap.add_argument('--elect_weights', type=str)
-    ap.add_argument('--rewgt_int', type=int, default=10)
-    ap.add_argument('--rewgt_threshold', type=float, default=1.1)
+    ap.add_argument('--rewgt_pos', type=int, default=10)
     ap.add_argument('--num_of_shft', type=int, default=3, help='maximum number of shifting teachers')
     ap.add_argument('--fail_coll_lim', type=int, default=3, help='maximum number of fail prediction be choosed in worst list')
     ap.add_argument('--max_epoch', type=int, default=20)
@@ -281,20 +280,15 @@ if __name__ == '__main__':
                     optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
                     gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
                 )
-            if args.rewgt_int > 0 and epoch % args.rewgt_int == 0 and epoch != 0:
+            if args.rewgt_pos == epoch and args.corruption_level == 'L2':
                 elect_weights = {}
                 for k, wgt in args.elect_weights.items():
-                    # if wgt > 1.: 
-                    #     elect_weight = ((wgt-1.)/2.) + 1.
-                    #     if elect_weight < args.rewgt_threshold: elect_weight = 1.
-                    #     elect_weights[k] = elect_weight
                     if k in ['END1', 'END2', 'WHN', 'ENQ'] and wgt < 2.:
                         elect_weights[k] = 2.
                     elif k in ['PSH', 'ENSC'] and wgt < 1.5:
                         elect_weights[k] = 1.5
                     else: elect_weights[k] = wgt
                 args.elect_weights = elect_weights
-                args.rewgt_int = -1
 
     wandb_run.finish()
     print('END!')
