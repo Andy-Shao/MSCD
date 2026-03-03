@@ -10,10 +10,10 @@ from torch.utils.data import DataLoader
 from torchaudio.transforms import MelSpectrogram
 
 from lib import constants
-from lib.utils import make_unless_exits, print_argparse, count_ttl_params
+from lib.utils import make_unless_exits, print_argparse, count_ttl_params, store_model_structure_to_txt
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.spSet import SpeechCommandsV2C
-from ..utils import build_model, load_weight, mlt_inference
+from ..utils import build_model, load_weight, mlt_inference, __cal_model_path__
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -70,7 +70,12 @@ if __name__ == '__main__':
     ])] * len(corruption_types)
     std_aut, std_clsf = build_model(args=args)
     load_weight(args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION,)
+    aut_pth, clsf_pth = __cal_model_path__(args=args, mode=constants.STUDENT_ADAPTATION)
+    aut_pth = aut_pth.replace('.pt', '.txt')
+    clsf_pth = clsf_pth.replace('.pt', '.txt')
     param_num = count_ttl_params(model=std_aut) + count_ttl_params(model=std_clsf)
+    store_model_structure_to_txt(model=std_aut, output_path=aut_pth)
+    store_model_structure_to_txt(model=std_clsf, output_path=clsf_pth)
     eval_set = SpeechCommandsV2C(
         root_path=args.eval_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types, 
         data_tf=data_tfs

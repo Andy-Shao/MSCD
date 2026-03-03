@@ -4,6 +4,11 @@ import argparse
 import torch
 from torch import nn
 
+def store_model_structure_to_txt(model: nn.Module, output_path: str) -> None:
+    model_info = str(model)
+    with open(output_path, 'w') as f:
+        f.write(model_info)
+
 def unique_pairs(start:int, end:int) -> list:
     ret = []
     if start+1 >= end: return []
