@@ -13,7 +13,7 @@ from torchaudio.transforms import MelSpectrogram
 
 from lib import constants
 from lib.utils import make_unless_exits, print_argparse
-from lib.adaptation import collect_worst_item, is_frozen, amaut_freeze
+from lib.adaptation import collect_worst_item, is_frozen
 from lib.dataset import IdxSet, Subset, PseudoLabelSet
 from lib.spSet import SpeechCommandsV2C
 from lib.corruption import CorruptionMeta
