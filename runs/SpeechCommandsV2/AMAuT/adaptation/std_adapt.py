@@ -262,7 +262,7 @@ if __name__ == '__main__':
         if epoch >= args.max_epoch: break
         print('Adaptating...')
         aut.train(); clsf.train()
-        # amaut_freeze(model=aut, drop=False)
+        amaut_freeze(model=aut, drop=False)
         ttl_loss = 0.; ttl_clsf_loss = 0.; ttl_ctr_loss = 0.
         for adpt_data in tqdm(adpt_loader):
             labels = adpt_data[-1].to(args.device)
