@@ -70,7 +70,7 @@ if __name__ == '__main__':
     ])] * len(corruption_types)
     std_aut, std_clsf = build_model(args=args)
     load_weight(args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION,)
-    aut_pth, clsf_pth = __cal_model_path__(args=args, mode=constants.STUDENT_ADAPTATION)
+    aut_pth, clsf_pth = __cal_model_path__(args=args, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path)
     aut_pth = aut_pth.replace('.pt', '.txt')
     clsf_pth = clsf_pth.replace('.pt', '.txt')
     param_num = count_ttl_params(model=std_aut) + count_ttl_params(model=std_clsf)
