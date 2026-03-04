@@ -20,7 +20,7 @@ from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.component import MelSpectrogramPadding
 from lib.spSet import VocalSoundC
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
-from lib.adaptation import collect_worst_item
+from lib.adaptation import collect_worst_item, amaut_freeze
 from ..util import build_model, load_weight, teach_inference, store_weight
 
 def pseudo_labeling(
@@ -231,7 +231,9 @@ if __name__ == '__main__':
         )
         if epoch == args.max_epoch: break
         print('Adapting...')
-        for aut in auts: aut.train()
+        for aut in auts: 
+            aut.train()
+            amaut_freeze(model=aut, drop=False)
         for clsf in clsfs: clsf.train()
         for i, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
             adpt_set = VocalSoundC(
