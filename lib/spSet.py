@@ -15,7 +15,8 @@ class VocalSoundC(Dataset):
         self.corruption_level = corruption_level
         if isinstance(corruption_type, str): self.corruption_types = [corruption_type]
         else: self.corruption_types = corruption_type
-        if isinstance(data_tf, nn.Module): self.data_tfs = [data_tf]
+        if data_tf is None: self.data_tfs = None
+        elif isinstance(data_tf, nn.Module): self.data_tfs = [data_tf]
         else: self.data_tfs = data_tf
         self.label_tf = label_tf
         self.label_dict = pd.read_csv(os.path.join(root_path, self.labe_dic_file), header=0)
@@ -100,8 +101,8 @@ class SpeechCommandsV2C(Dataset):
             self.corruption_types = [corruption_type]
         else: self.corruption_types = corruption_type
         self.corruption_level = corruption_level
-        if isinstance(data_tf, nn.Module):
-            self.data_tfs = [data_tf]
+        if data_tf is None: self.data_tfs = None
+        elif isinstance(data_tf, nn.Module): self.data_tfs = [data_tf]
         else: self.data_tfs = data_tf
         self.label_tf = label_tf
         self.data_ls = self.__cal_data_list__()
