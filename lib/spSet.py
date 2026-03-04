@@ -1,9 +1,58 @@
 import os
+import pandas as pd
 
 import torch
 from torch import nn
 from torch.utils.data import Dataset
 import torchaudio
+
+class VocalSoundC(Dataset):
+    labe_dic_file = 'class_labels_indices_vs.csv'
+    meta_file = os.path.join('datafiles', 'te.json')
+    def __init__(self, root_path:str, corruption_level:str, corruption_type:str|list[str], data_tf:nn.Module|list[nn.Module]=None, label_tf:nn.Module=None):
+        super().__init__()
+        self.root_path = root_path
+        self.corruption_level = corruption_level
+        if isinstance(corruption_type, str): self.corruption_types = [corruption_type]
+        else: self.corruption_types = corruption_type
+        if isinstance(data_tf, nn.Module): self.data_tfs = [data_tf]
+        else: self.data_tfs = data_tf
+        self.label_tf = label_tf
+        self.label_dict = pd.read_csv(os.path.join(root_path, self.labe_dic_file), header=0)
+        self.sample_list = self.__file_list__()
+    
+    def __file_list__(self):
+        import json
+        with open(os.path.join(self.root_path, self.meta_file)) as f:
+            json_str = json.load(f)
+        file_list = pd.json_normalize(json_str['data'])
+        file_list['file_name'] = [str(it).split('/')[-1] for it in file_list['wav']]
+        return file_list
+
+    def __len__(self):
+        return len(self.sample_list)
+
+    def __getitem__(self, index):
+        meta_info = self.sample_list.iloc[index]
+        label = int(pd.Series(self.label_dict[self.label_dict['mid'] == meta_info['labels']]['index']).item())
+        result = []
+        for corruption_type in self.corruption_types:
+            wavform, sample_rate = torchaudio.load(
+                os.path.join(self.root_path, 'audio_16k', corruption_type, self.corruption_level, meta_info['file_name']),
+                normalize=True
+            )
+            result.append(wavform)
+        if self.data_tfs is not None:
+            tmp = []
+            for i, wavform in enumerate(result):
+                data_tf = self.data_tfs[i]
+                wavform = data_tf(wavform)
+                tmp.append(wavform)
+            result = tmp
+        if self.label_tf is not None:
+            label = self.label_tf(label)
+        result.append(label)
+        return tuple(result)
 
 class SpeechCommandsV2(Dataset):
     label_dict = {

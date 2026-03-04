@@ -4,6 +4,20 @@ import random
 import torch
 from torch import nn
 
+class MelSpectrogramPadding(nn.Module):
+    def __init__(self, target_length):
+        super(MelSpectrogramPadding, self).__init__()
+        self.target_length = target_length
+
+    def forward(self, x:torch.Tensor) -> torch.Tensor:
+        from torch.nn.functional import pad
+        p = self.target_length - x.shape[2]
+        if p > 0:
+            x = pad(x, (0, p, 0, 0), mode='constant', value=0.)
+        elif p < 0:
+            x = x[:, :, 0:self.target_length]
+        return x
+
 class TimeShift(nn.Module):
     def __init__(self, shift_limit: float, is_random=True, is_bidirection=False) -> None:
         """
