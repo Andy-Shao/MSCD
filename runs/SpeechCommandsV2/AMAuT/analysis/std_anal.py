@@ -25,7 +25,6 @@ if __name__ == '__main__':
     ap.add_argument('--batch_size', type=int, default=64)
     ap.add_argument('--std_adpt_wght_pth', type=str)
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
-    ap.add_argument('--elect_weights', type=str)
 
     ap.add_argument('--wandb', action='store_true')
     ap.add_argument('--seed', type=int, default=2026, help='random seed')
@@ -38,7 +37,6 @@ if __name__ == '__main__':
         raise Exception('No support!')
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.arch = 'AMAuT'
-    args.elect_weights = json.loads(args.elect_weights)
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.ANALYSIS)
     make_unless_exits(args.output_path)
     torch.backends.cudnn.benchmark = True
