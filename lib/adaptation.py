@@ -82,7 +82,7 @@ def collect_worst_item(
 
     # print('Worst list presentation:')
     Q = args.num_of_shft
-    assert Q < len(corruption_types), 'Unsupport!'
+    assert Q <= len(corruption_types), 'Unsupport!'
     shft_prio = {}
     for corruption_type in corruption_types:
         shft_prio[corruption_type] = len(worst_list[corruption_type].keys()) / args.elect_weights[corruption_type]
