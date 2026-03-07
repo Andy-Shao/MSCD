@@ -11,6 +11,16 @@ from lib.corruption import CorruptionMeta
 from AuT.lib.config import AuT_base
 from AuT.lib.model import FCETransform, FCEClassifier
 
+def partial_freeze(model:FCETransform, tf_num:int=6) -> None:
+    for param in model.parameters():
+        param.requires_grad = False
+    
+    for subm in model.layers[-tf_num:]:
+        for param in subm.parameters():
+            param.requires_grad = True
+    for param in model.tf_norm.parameters():
+        param.requires_grad = True
+
 def teach_inference(
     args:argparse.Namespace, corruption_types:list[str], auts:list[nn.Module], clsfs:list[nn.Module],
     data_loader:DataLoader,

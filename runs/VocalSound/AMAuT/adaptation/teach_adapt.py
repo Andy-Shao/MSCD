@@ -20,8 +20,8 @@ from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.component import MelSpectrogramPadding
 from lib.spSet import VocalSoundC
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
-from lib.adaptation import collect_worst_item, amaut_freeze
-from ..util import build_model, load_weight, teach_inference, store_weight
+from lib.adaptation import collect_worst_item
+from ..util import build_model, load_weight, teach_inference, store_weight, partial_freeze
 
 def pseudo_labeling(
     args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str], 
@@ -192,6 +192,7 @@ if __name__ == '__main__':
         cmeta = CorruptionMeta(type=corruption_type, level=args.corruption_level)
         aut, clsf = build_model(args=args)
         load_weight(args=args, aut=aut, clsf=clsf, mode='adaptation', metaInfo=cmeta)
+        partial_freeze(model=aut, tf_num=6)
         auts.append(aut)
         clsfs.append(clsf)
         optimizer = build_optimizer(lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay)
@@ -233,7 +234,7 @@ if __name__ == '__main__':
         print('Adapting...')
         for aut in auts: 
             aut.train()
-            amaut_freeze(model=aut, drop=False)
+            # amaut_freeze(model=aut, drop=False)
         for clsf in clsfs: clsf.train()
         for i, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
             adpt_set = VocalSoundC(
