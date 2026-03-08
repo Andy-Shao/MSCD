@@ -1,7 +1,7 @@
 # Multi-Shift Consensus Distillation (MSCD): Robust Test-Time Adaptation via Elected Pseudo-Labels
 ## Software Environment
 + Docker image: nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
-+ GPU: RTX 5090 / RTX PRO 6000 Blackwell Workstation
++ GPU: RTX 4090 / RTX 5090 / RTX PRO 6000 Blackwell Workstation
 ```shell
 conda create --name MSCD python==3.13.9 -y
 conda activate MSCD
