@@ -101,8 +101,7 @@ def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tf
             preds = nn.functional.softmax(outputs, dim=1) * args.elect_weights[corruption_type]
             if j == 1: final_preds = preds
             else: final_preds += preds
-        _, final_preds = torch.max(final_preds, dim=1)
-        ttl_corr += (final_preds == labels).sum().item()
+        ttl_corr += (torch.max(final_preds, dim=1)[1]==labels).sum().item()
         ttl_size += labels.shape[0]
         idx_cache.append(idxs)
         pred_cache.append(final_preds)
@@ -242,7 +241,43 @@ if __name__ == '__main__':
         if epoch >= args.max_epoch: break
         print('Adaptating...')
         std_aut.train(); std_clsf.train()
-        exit()
+        # amaut_freeze(model=aut, drop=False)
+        ttl_loss = 0.; ttl_clsf_loss = 0.; ttl_ctr_loss = 0.
+        for adpt_data in tqdm(adpt_loader):
+            labels = adpt_data[-1].to(args.device)
+            for i in range(len(adpt_data)-1):
+                features = adpt_data[i].to(args.device)
 
+                outputs = std_clsf(std_aut(features)[1])
+
+                # classification loss
+                clsf_loss = (-labels * nn.functional.log_softmax(outputs, dim=1)).sum(dim=1) # cross-entropy loss
+                clsf_loss = clsf_loss.mean()
+
+                # contrastive loss
+                if args.ctr_rt > 0.:
+                    ctr_loss = args.ctr_rt * ctr_loss_fun(outputs, labels)
+                else: ctr_loss = torch.tensor(0.).to(device=args.device)
+
+                if i == 0:
+                    loss = clsf_loss + ctr_loss
+                else: 
+                    loss += clsf_loss + ctr_loss
+                ttl_clsf_loss += clsf_loss.detach().cpu().item()
+                ttl_ctr_loss += ctr_loss.detach().cpu().item()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            ttl_loss += loss.detach().cpu().item()
+        wandb_run.log(data={
+            'Loss/TTL Loss': ttl_loss/(len(adpt_loader)*len(corruption_types)),
+            'Loss/Classification loss': ttl_clsf_loss/(len(adpt_loader)*len(corruption_types)),
+            'Loss/Contrastive loss': ttl_ctr_loss/(len(adpt_loader)*len(corruption_types)),
+        }, step=epoch)
+        if epoch % args.interval == 0:
+            lr_scheduler(
+                optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
+                gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+            )
     wandb_run.finish()
     print('END!')
