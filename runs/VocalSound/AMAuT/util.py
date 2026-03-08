@@ -11,6 +11,29 @@ from lib.corruption import CorruptionMeta
 from AuT.lib.config import AuT_base
 from AuT.lib.model import FCETransform, FCEClassifier
 
+def mlt_inference(
+    args:argparse.Namespace, corruption_types:list[str], aut:nn.Module, clsf:nn.Module, 
+    data_loader:DataLoader
+) -> tuple[float, dict[str, float]]:
+    aut.eval(); clsf.eval()
+    local_corrs, local_sizes = {k:0. for k in corruption_types}, {k:0. for k in corruption_types}
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            features = data[i].to(args.device)
+            corruption_type = corruption_types[i]
+            with torch.inference_mode():
+                outputs = clsf(aut(features)[1])
+                outputs = outputs.detach().cpu()
+            _, preds = torch.max(outputs, dim=1)
+            local_corrs[corruption_type] += (preds == labels).sum().item()
+            local_sizes[corruption_type] += labels.shape[0]
+    local_accus = {k:[] for k in corruption_types}
+    for corruption_type in corruption_types:
+        local_accus[corruption_type] = local_corrs[corruption_type]/local_sizes[corruption_type]
+    global_accu = sum([v for k,v in local_corrs.items()])/sum([v for k,v in local_sizes.items()])
+    return global_accu, local_accus
+
 def partial_freeze(model:FCETransform, tf_num:int=6) -> None:
     for param in model.parameters():
         param.requires_grad = False
