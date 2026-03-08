@@ -5,6 +5,6 @@ python -m runs.VocalSound.AMAuT.adaptation.teach_adapt --dataset 'VocalSound' \
     --adpt_set_path $BASE_PATH'/data/Ada-VocalSound-C' \
     --eval_set_path $BASE_PATH'/data/VocalSound-C' \
     --batch_size 32 --corruption_level 'L2' --num_of_shft 3 --fail_coll_lim 3 \
-    --max_epoch 20 --lr '2.5e-5' --lr_cardinality 80 \
+    --max_epoch 20 --lr '2.5e-5' --lr_cardinality 80 --unfrz_tf_num 12 \
     --elect_weights '{"WHN":1.3, "ENQ":1.0, "END1":1.3, "END2":1.3, "ENSC":1.0, "PSH":1.4, "TST":1.3}' \
     --adpt_wght_pth $BASE_PATH'/result/VocalSound/AMAuT/TTDA' --wandb

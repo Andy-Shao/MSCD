@@ -133,6 +133,7 @@ if __name__ == '__main__':
     ap.add_argument('--max_epoch', type=int, default=20)
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
+    ap.add_argument('--unfrz_tf_num', type=int, default=6)
 
     ap.add_argument('--lr', type=float, default=1e-2)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -192,7 +193,7 @@ if __name__ == '__main__':
         cmeta = CorruptionMeta(type=corruption_type, level=args.corruption_level)
         aut, clsf = build_model(args=args)
         load_weight(args=args, aut=aut, clsf=clsf, mode='adaptation', metaInfo=cmeta)
-        partial_freeze(model=aut, tf_num=6)
+        partial_freeze(model=aut, tf_num=args.unfrz_tf_num)
         auts.append(aut)
         clsfs.append(clsf)
         optimizer = build_optimizer(lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay)
