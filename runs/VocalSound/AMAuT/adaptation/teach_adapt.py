@@ -20,7 +20,7 @@ from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.component import MelSpectrogramPadding
 from lib.spSet import VocalSoundC
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
-from lib.adaptation import collect_worst_item
+from lib.adaptation import collect_worst_item, amaut_freeze
 from ..util import build_model, load_weight, teach_inference, store_weight, partial_freeze
 
 def pseudo_labeling(
@@ -133,7 +133,6 @@ if __name__ == '__main__':
     ap.add_argument('--max_epoch', type=int, default=20)
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
-    ap.add_argument('--unfrz_tf_num', type=int, default=6)
 
     ap.add_argument('--lr', type=float, default=1e-2)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -193,7 +192,7 @@ if __name__ == '__main__':
         cmeta = CorruptionMeta(type=corruption_type, level=args.corruption_level)
         aut, clsf = build_model(args=args)
         load_weight(args=args, aut=aut, clsf=clsf, mode='adaptation', metaInfo=cmeta)
-        partial_freeze(model=aut, tf_num=args.unfrz_tf_num)
+        # partial_freeze(model=aut, tf_num=12)
         auts.append(aut)
         clsfs.append(clsf)
         optimizer = build_optimizer(lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay)
@@ -208,7 +207,7 @@ if __name__ == '__main__':
         FrequenceTokenTransformer(),
     ])] * len(corruption_types)
 
-    max_pseudo_accu = 0.
+    # max_pseudo_accu = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_accu_analyzing(
@@ -219,9 +218,9 @@ if __name__ == '__main__':
             args=args, auts=auts, clsfs=clsfs, corruption_types=corruption_types, 
             data_tfs=data_tfs, step=epoch, logger=wandb_run
         )
-        if max_pseudo_accu <= pseudo_accu:
-            max_pseudo_accu = pseudo_accu
-            for i, corruption_type in enumerate(corruption_types):
+        # if max_pseudo_accu <= pseudo_accu:
+        #     max_pseudo_accu = pseudo_accu
+        for i, corruption_type in enumerate(corruption_types):
                 store_weight(
                     args=args, aut=auts[i], clsf=clsfs[i], mode='adaptation', 
                     metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
@@ -235,7 +234,7 @@ if __name__ == '__main__':
         print('Adapting...')
         for aut in auts: 
             aut.train()
-            # amaut_freeze(model=aut, drop=False)
+            amaut_freeze(model=aut, drop=False)
         for clsf in clsfs: clsf.train()
         for i, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
             adpt_set = VocalSoundC(
