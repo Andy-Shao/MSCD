@@ -246,7 +246,7 @@ if __name__ == '__main__':
         if max_roc_auc <= std_roc_auc:
             max_roc_auc = std_roc_auc
             store_weight(
-                args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION, 
+                args=args, aut=std_aut, clsf=std_clsf, mode=constants.KNOWLEDGE_DISTILLATION, 
                 root_path=args.output_path
             )
         

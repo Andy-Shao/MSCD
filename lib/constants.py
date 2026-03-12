@@ -3,7 +3,7 @@ TRAIN_TAG='Train'
 TTA_TAG='TTA'
 TEACHER_ADAPTATION='Teach-Adapt'
 TEACHER_CONSENSUS='Teach-Cons'
-STUDENT_ADAPTATION='Std-Adapt'
+STUDENT_ADAPTATION='KD'
 ANALYSIS='Analysis'
 
 dataset_dic = {

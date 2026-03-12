@@ -12,7 +12,7 @@ BASE_PATH=${BASE_PATH:-'/root'}
 #     --adpt_wght_pth $BASE_PATH'/result/SpeechCommandsV2/AMAuT/TTDA' --wandb
 
 # Knowledge distillation
-python -m runs.SpeechCommandsV2.AMAuT.adaptation.std_adapt --dataset 'SpeechCommandsV2' \
+python -m runs.SpeechCommandsV2.AMAuT.adaptation.kd --dataset 'SpeechCommandsV2' \
     --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' --batch_size 32 \
     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
     --corruption_level 'L2' --max_epoch 30 --lr '1e-4' --pseudo_threshold 10.0 \

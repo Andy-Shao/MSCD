@@ -1,6 +1,7 @@
 #!bin/bash
 BASE_PATH=${BASE_PATH:-'/root'}
 
+# Teacher Consensus
 # python -m runs.VocalSound.AMAuT.adaptation.teach_cons --dataset 'VocalSound' \
 #     --adpt_set_path $BASE_PATH'/data/Ada-VocalSound-C' \
 #     --eval_set_path $BASE_PATH'/data/VocalSound-C' \
@@ -9,7 +10,8 @@ BASE_PATH=${BASE_PATH:-'/root'}
 #     --elect_weights '{"WHN":1.3, "ENQ":1.0, "END1":1.3, "END2":1.3, "ENSC":1.0, "PSH":0.9, "TST":1.3}' \
 #     --adpt_wght_pth $BASE_PATH'/result/VocalSound/AMAuT/TTDA' --wandb
 
-python -m runs.VocalSound.AMAuT.adaptation.std_adapt --dataset 'VocalSound' \
+# Knowledge Distillation
+python -m runs.VocalSound.AMAuT.adaptation.kd --dataset 'VocalSound' \
     --adpt_set_path $BASE_PATH'/data/Ada-VocalSound-C' \
     --eval_set_path $BASE_PATH'/data/VocalSound-C' \
     --batch_size 32 --corruption_level 'L2' --max_epoch 20 --lr '1e-4' --ctr_rt 1.0 \
