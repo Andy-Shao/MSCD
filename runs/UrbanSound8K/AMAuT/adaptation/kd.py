@@ -17,8 +17,49 @@ from lib.utils import print_argparse, make_unless_exits
 from lib.component import AmplitudeToDB, FrequenceTokenTransformer, AudioClip, Components
 from lib.corruption import CorruptionMeta
 from lib.enSet import UrbanSound8KC
-from lib.dataset import IdxSet
-from ..util import build_model, load_weight
+from lib.dataset import IdxSet, PseudoLabelSet
+from lib.optimizer import build_optimizer, lr_scheduler
+from lib.loss import ContrastiveLoss
+from ..util import build_model, load_weight, mlt_inference, store_weight
+
+def std_f1_analyzing(
+    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, corruption_types:list[str],
+    data_tfs:list[nn.Module], step:int, logger
+) -> float:
+    print('Adapataion set accuracy analyzing...')
+    adpt_set = UrbanSound8KC(
+        root_path=args.adpt_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level,
+        data_tf=data_tfs
+    )
+    adpt_loader = DataLoader(
+        dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
+        num_workers=args.num_workers
+    )
+    adpt_global_f1, adpt_local_f1 = mlt_inference(
+        args=args, corruption_types=corruption_types, aut=aut, clsf=clsf, data_loader=adpt_loader
+    )
+    print('Adaptation local F1 scores are:', {key: round(value, ndigits=4) for key, value in adpt_local_f1.items()})
+    print(f'Adaptation global F1 score is: {adpt_global_f1:.4f}')
+    logger.log(data={f'Adaptation/{k} F1 score': v for k,v in adpt_local_f1.items()}, step=step)
+    logger.log(data={f'Adaptation/Global F1 score': adpt_global_f1}, step=step)
+
+    print('Evaluation set accuracy analyzing...')
+    eval_set = UrbanSound8KC(
+        root_path=args.eval_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level, 
+        data_tf=data_tfs
+    )
+    eval_loader = DataLoader(
+        dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
+        num_workers=args.num_workers
+    )
+    eval_global_f1, eval_local_f1 = mlt_inference(
+        args=args, corruption_types=corruption_types, aut=aut, clsf=clsf, data_loader=eval_loader
+    )
+    print('Evaluation local F1 scores are:', {key: round(value, ndigits=4) for key, value in eval_local_f1.items()})
+    print(f'Evaluation global F1 score is: {eval_global_f1:.4f}')
+    logger.log(data={f'Evaluation/{k} F1 score': v for k,v in eval_local_f1.items()}, step=step)
+    logger.log(data={f'Evaluation/Global F1 score': eval_global_f1}, step=step)
+    return adpt_global_f1
 
 def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tfs:list[nn.Module]):
     print('Loading all teachers...')
@@ -164,5 +205,82 @@ if __name__ == '__main__':
         FrequenceTokenTransformer()
     ])] * len(corruption_types)
     pseudo_labels = pseudo_labeling(args=args, corruption_types=corruption_types, data_tfs=data_tfs)
+    adpt_set = UrbanSound8KC(
+        root_path=args.adpt_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level,
+        data_tf=data_tfs
+    )
+    adpt_set = PseudoLabelSet(
+        dataset=adpt_set, pseudo_labels=pseudo_labels, label_position=len(corruption_types)
+    )
+    adpt_loader = DataLoader(
+        dataset=adpt_set, batch_size=args.batch_size, shuffle=True, drop_last=False, 
+        num_workers=args.num_workers
+    )
+    std_aut, std_clsf = build_model(args=args)
+    load_weight(args=args, aut=std_aut, clsf=std_clsf, mode='origin',)
+    optimizer = build_optimizer(
+        lr=args.lr, auT=std_aut, auC=std_clsf, auT_decay=args.aut_lr_decay, 
+        auC_decay=args.clsf_lr_decay
+    )
+    ctr_loss_fun = ContrastiveLoss(
+        hi_def_smth=args.hi_def_smth, class_num=args.class_num, device=args.device, 
+        dist=args.ctr_dist
+    )
 
+    print('Student Adaptation')
+    max_f1 = 0.
+    for epoch in range(args.max_epoch+1):
+        print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
+        print('Inferencing...')
+        f1 = std_f1_analyzing(
+            args=args, aut=std_aut, clsf=std_clsf, corruption_types=corruption_types, data_tfs=data_tfs,
+            step=epoch, logger=wandb_run
+        )
+        if max_f1 <= f1:
+            max_f1 = f1
+            store_weight(
+                args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path
+            )
+        if epoch >= args.max_epoch: break
+        print('Adaptating...')
+        std_aut.train(); std_clsf.train()
+        # amaut_freeze(model=std_aut, drop=False)
+        ttl_loss = 0.; ttl_clsf_loss = 0.; ttl_ctr_loss = 0.
+        for adpt_data in tqdm(adpt_loader):
+            labels = adpt_data[-1].to(args.device)
+            for i in range(len(adpt_data)-1):
+                features = adpt_data[i].to(args.device)
+
+                outputs, _ = std_clsf(std_aut(features)[0])
+
+                # classification loss
+                clsf_loss = (-labels * nn.functional.log_softmax(outputs, dim=1)).sum(dim=1) # cross-entropy loss
+                clsf_loss = clsf_loss.mean()
+
+                # contrastive loss
+                if args.ctr_rt > 0.:
+                    ctr_loss = args.ctr_rt * ctr_loss_fun(outputs, labels)
+                else: ctr_loss = torch.tensor(0.).to(device=args.device)
+
+                if i == 0:
+                    loss = clsf_loss + ctr_loss
+                else: 
+                    loss += clsf_loss + ctr_loss
+                ttl_clsf_loss += clsf_loss.detach().cpu().item()
+                ttl_ctr_loss += ctr_loss.detach().cpu().item()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            ttl_loss += loss.detach().cpu().item()
+        wandb_run.log(data={
+            'Loss/TTL Loss': ttl_loss/(len(adpt_loader)*len(corruption_types)),
+            'Loss/Classification loss': ttl_clsf_loss/(len(adpt_loader)*len(corruption_types)),
+            'Loss/Contrastive loss': ttl_ctr_loss/(len(adpt_loader)*len(corruption_types)),
+        }, step=epoch)
+        if epoch % args.interval == 0:
+            lr_scheduler(
+                optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
+                gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+            )
+    wandb_run.finish()
     print('END!')
