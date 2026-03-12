@@ -1,7 +1,7 @@
 #!bin/bash
 BASE_PATH=${BASE_PATH:-'/root'}
 
-# python -m runs.VocalSound.AMAuT.adaptation.teach_adapt --dataset 'VocalSound' \
+# python -m runs.VocalSound.AMAuT.adaptation.teach_cons --dataset 'VocalSound' \
 #     --adpt_set_path $BASE_PATH'/data/Ada-VocalSound-C' \
 #     --eval_set_path $BASE_PATH'/data/VocalSound-C' \
 #     --batch_size 32 --corruption_level 'L2' --num_of_shft 3 --fail_coll_lim 3 \

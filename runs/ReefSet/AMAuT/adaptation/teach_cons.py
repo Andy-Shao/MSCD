@@ -175,7 +175,7 @@ if __name__ == '__main__':
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = args.forbid_ls.split(',')
     args.y_score_softmax = True
-    args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.TEACHER_ADAPTATION)
+    args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.TEACHER_CONSENSUS)
     make_unless_exits(args.output_path)
     torch.backends.cudnn.benchmark = True
 
@@ -187,7 +187,7 @@ if __name__ == '__main__':
     print_argparse(args)
     ##########################################
     wandb_run = wandb.init(
-        project=f'{constants.PROJECT_TITLE}-{constants.TEACHER_ADAPTATION}', 
+        project=f'{constants.PROJECT_TITLE}-{constants.TEACHER_CONSENSUS}', 
         name=f'{constants.architecture_dic[args.arch]}-{constants.dataset_dic[args.dataset]}-{args.corruption_level}', 
         mode='online' if args.wandb else 'disabled', 
         config=args, tags=['Audio Classification', 'Teacher Adaptation', args.dataset]
