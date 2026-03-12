@@ -18,4 +18,4 @@ python -m runs.VocalSound.AMAuT.adaptation.kd --dataset 'VocalSound' \
     --pseudo_threshold 5.4 --ctr_dist 'sq_l2' --lr_cardinality 40 \
     --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":1.0, "PSH":1.0, "TST":1.0}' \
     --orig_wght_pth $BASE_PATH'/result/VocalSound/AMAuT/train' \
-    --adpt_wght_pth './result/VocalSound/AMAuT/Teach-Adapt' --wandb
+    --adpt_wght_pth './result/VocalSound/AMAuT/Teach-Cons' --wandb
