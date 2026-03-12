@@ -5,6 +5,7 @@ import json
 import random
 import wandb
 from tqdm import tqdm
+from sklearn.metrics import f1_score
 
 from lib import constants
 
@@ -19,7 +20,65 @@ from lib.corruption import CorruptionMeta
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer, AudioClip
 from lib.enSet import UrbanSound8KC
-from ..util import build_model, load_weight, teach_inference
+from lib.dataset import IdxSet, PseudoLabelSet, Subset
+from lib.adaptation import collect_worst_item
+from ..util import build_model, load_weight, teach_inference, store_weight
+
+def pseudo_labeling(
+    args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str], 
+    data_tfs:list[nn.Module], step:int, logger
+):
+    print("Pseudo-labeling...")
+    for aut in auts: aut.eval()
+    for clsf in clsfs: clsf.eval()
+    us8_set = UrbanSound8KC(
+        root_path=args.adpt_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level,
+        data_tf=data_tfs
+    )
+    us8_set = IdxSet(dataset=us8_set)
+    us8_loader = DataLoader(
+        dataset=us8_set, batch_size=args.batch_size, shuffle=False, drop_last=False,
+        num_workers=args.num_workers
+    )
+    output_cache = {k:[] for k in corruption_types}
+    y_t, y_p = [], []
+    for i, data in tqdm(enumerate(us8_loader), total=len(us8_loader)):
+        labels = data[-1]
+        idxs = data[0]
+        for j in range(1, len(data)-1):
+            features = data[j].to(args.device)
+            aut, clsf = auts[j-1], clsfs[j-1]
+            corruption_type = corruption_types[j-1]
+            with torch.inference_mode():
+                outputs, _ = clsf(aut(features)[0])
+                outputs = outputs.detach().cpu()
+            preds = nn.functional.softmax(outputs, dim=1) * args.elect_weights[corruption_type]
+            if j==1: final_preds = preds
+            else: final_preds += preds
+            output_cache[corruption_type].append(outputs)
+        _, final_preds = torch.max(final_preds, dim=1)
+        y_t.append(labels)
+        y_p.append(final_preds)
+        if i == 0:
+            pred_cache = [final_preds]
+            idx_cache = [idxs]
+        else:
+            pred_cache.append(final_preds)
+            idx_cache.append(idxs)
+    y_t = torch.concat(y_t, dim=0)
+    y_p = torch.concat(y_p, dim=0)
+    pseudo_f1 = f1_score(y_true=y_t.numpy(), y_pred=y_p.numpy(), average='macro')
+    print(f'Teacher election pseudo-labeling F1 score is: {pseudo_f1:.4f}')
+    logger.log(data={'Adaptation/pseudo-labeling F1 score': pseudo_f1}, step=step)
+
+    # Merging output cache
+    tmp = {}
+    for key, value in output_cache.items():
+        tmp[key] = torch.concat(value, dim=0)
+    output_cache = tmp
+    pred_cache = torch.concat(pred_cache, dim=0)
+    idx_cache = torch.concat(idx_cache, dim=0)
+    return output_cache, pred_cache, idx_cache, pseudo_f1
 
 def teacher_f1_analyzing(
     args:argparse.Namespace, auts:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
@@ -154,6 +213,60 @@ if __name__ == '__main__':
             args=args, auts=teach_auts, clsfs=teach_clsfs, corruption_types=corruption_types, 
             data_tfs=data_tfs, step=epoch, logger=wandb_run
         )
-        exit()
+        output_cache, pred_cache, idx_cache, pseudo_f1 = pseudo_labeling(
+            args=args, auts=teach_auts, clsfs=teach_clsfs, corruption_types=corruption_types,
+            data_tfs=data_tfs, step=epoch, logger=wandb_run
+        )
+        if max_f1 <= pseudo_f1:
+            max_f1 = pseudo_f1
+            for i, corruption_type in enumerate(corruption_types):
+                store_weight(
+                    args=args, aut=teach_auts[i], clsf=teach_clsfs[i], mode='adaptation',
+                    metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
+                    root_path=args.output_path
+                )
+        worst_list, shft_typs = collect_worst_item(
+            args=args, corruption_types=corruption_types, idx_cache=idx_cache, pred_cache=pred_cache,
+            output_cache=output_cache, step=epoch, logger=wandb_run, feature_label=False
+        )
+        if epoch == args.max_epoch: break
+        print('Adapting...')
+        for teach_aut in teach_auts: teach_aut.train()
+        for teach_clsf in teach_clsfs: teach_clsf.train()
+        for i, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
+            adpt_set = UrbanSound8KC(
+                root_path=args.adpt_set_path, corruption_type=corruption_type, corruption_level=args.corruption_level,
+                data_tf=data_tfs[0]
+            )
+            adpt_set = PseudoLabelSet(dataset=adpt_set, pseudo_labels=worst_list[corruption_type], label_position=1)
+            adpt_set = Subset(dataset=adpt_set, id_list=list(worst_list[corruption_type].keys()))
 
+            adpt_loader = DataLoader(
+                dataset=adpt_set, batch_size=args.batch_size, shuffle=True, drop_last=False,
+                num_workers=args.num_workers
+            )
+            teach_aut, teach_clsf = teach_auts[i], teach_clsfs[i]
+            optimizer = optimizers[i]
+
+            for features, labels in tqdm(adpt_loader, desc=f'{corruption_type}-{args.corruption_level}', position=1, leave=False):
+                if corruption_type not in shft_typs: break
+                if corruption_type in args.forbid_ls: break
+                features, labels = features.to(args.device), labels.to(args.device)
+                if features.shape[0] == 1:
+                    features = features.repeat(4, 1, 1)
+                    labels = labels.repeat(4)
+
+                outputs, _ = teach_clsf(teach_aut(features)[0])
+                clsf_loss = loss_fun(outputs, labels)
+
+                optimizer.zero_grad()
+                clsf_loss.backward()
+                optimizer.step()
+
+            if epoch % args.interval == 0:
+                lr_scheduler(
+                    optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality, 
+                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+                )
+    wandb_run.finish()
     print('END!')
