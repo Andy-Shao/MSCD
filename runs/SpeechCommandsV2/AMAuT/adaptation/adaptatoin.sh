@@ -19,4 +19,4 @@ python -m runs.SpeechCommandsV2.AMAuT.adaptation.kd --dataset 'SpeechCommandsV2'
     --lr_threshold 10 --ctr_rt 1.0 --ctr_dist 'sq_l2' \
     --elect_weights '{"WHN":2.0, "ENQ":2.0, "END1":2.0, "END2":2.0, "ENSC":1.5, "PSH":1.5, "TST":2.0}' \
     --orig_wght_pth $BASE_PATH'/result/SpeechCommandsV2/AMAuT/train' \
-    --adpt_wght_pth './result/SpeechCommandsV2/AMAuT/Teach-Adapt' --wandb
+    --adpt_wght_pth './result/SpeechCommandsV2/AMAuT/Teach-Cons' --wandb
