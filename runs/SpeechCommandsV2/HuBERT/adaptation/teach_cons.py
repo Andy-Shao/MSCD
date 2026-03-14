@@ -17,8 +17,67 @@ from lib.loss import CrossEntropyLabelSmooth
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.component import ReduceChannel
 from lib.spSet import SpeechCommandsV2C
+from lib.adaptation import collect_worst_item
+from lib.dataset import PseudoLabelSet, Subset, IdxSet
 from ..utils import build_model, teach_inference
-from HuBERT.lib.utils import load_weight
+from HuBERT.lib.utils import load_weight, store_weight
+
+def pseudo_labeling(
+        args:argparse.Namespace, hubs:list[nn.Module], clsfs:list[nn.Module], data_tfs:list[nn.Module],
+        corruption_types:list[str], step:int, logger
+    ):
+    print("Pseudo-labeling...")
+    for hub in hubs: hub.eval()
+    for clsf in clsfs: clsf.eval()
+    ttl_corr, ttl_size = 0., 0.
+    output_cache = {}
+
+    adpt_set = SpeechCommandsV2C(
+        root_path=args.adpt_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types,
+        data_tf=data_tfs
+    )
+    adpt_set = IdxSet(dataset=adpt_set)
+    adpt_loader = DataLoader(
+        dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, num_workers=args.num_workers
+    )
+
+    for j, data in tqdm(enumerate(adpt_loader), total=len(adpt_loader)):
+        labels = data[-1]
+        idxs = data[0]
+        for i in range(1, len(data)-1):
+            features = data[i].to(args.device)
+            hub = hubs[i-1]
+            clsf = clsfs[i-1]
+            corruption_type = corruption_types[i-1]
+            with torch.inference_mode():
+                outputs, _ = clsf(hub(features)[0])
+                outputs = outputs.detach().cpu()
+            preds = nn.functional.softmax(outputs, dim=1) * args.elect_weights[corruption_type]
+            if i == 1: final_preds = preds
+            else: final_preds += preds
+            if j == 0: output_cache[corruption_type] = [outputs]
+            else: output_cache[corruption_type].append(outputs)
+        _, final_preds = torch.max(final_preds, dim=1)
+        ttl_corr += (final_preds==labels).sum().item()
+        ttl_size += labels.shape[0]
+        if j == 0: 
+            pred_cache = [final_preds]
+            idx_cache = [idxs]
+        else: 
+            pred_cache.append(final_preds)
+            idx_cache.append(idxs)
+    pseudo_accu = ttl_corr/ttl_size
+    print(f'Teacher election pseudo-labeling accuracy is: {pseudo_accu:.4f}')
+    logger.log(data={'Adaptation/pseudo-labeling Accuracy': pseudo_accu}, step=step)
+
+    # Merging output cache
+    tmp = {}
+    for key, value in output_cache.items():
+        tmp[key] = torch.concat(value, dim=0)
+    output_cache = tmp
+    pred_cache = torch.concat(pred_cache, dim=0)
+    idx_cache = torch.concat(idx_cache, dim=0)
+    return output_cache, pred_cache, idx_cache, pseudo_accu
 
 def teacher_accu_analyzing(
         args:argparse.Namespace, hubs:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
@@ -41,6 +100,7 @@ def teacher_accu_analyzing(
     for corruption_type in corruption_types:
         logger.log(data={f'Adaptation/{corruption_type} Accuracy': adpt_accus[corruption_type]}, step=step)
 
+    print('Evaluation Set')
     eval_set = SpeechCommandsV2C(
         root_path=args.eval_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types,
         data_tf=data_tfs
@@ -141,7 +201,63 @@ if __name__ == '__main__':
             args=args, hubs=teach_hubs, clsfs=teach_clsfs, corruption_types=corruption_types, 
             data_tfs=data_tfs, step=epoch, logger=wandb
         )
-        exit()
+        output_cache, pred_cache, idx_cache, pseudo_accu = pseudo_labeling(
+            args=args, hubs=teach_hubs, clsfs=teach_clsfs, data_tfs=data_tfs, step=epoch, logger=wandb_run,
+            corruption_types=corruption_types
+        )
+        if max_pl_accu <= pseudo_accu:
+            max_pl_accu = pseudo_accu
+            for i, corruption_type in enumerate(corruption_types):
+                teach_hub, teach_clsf = teach_hubs[i], teach_clsfs[i]
+                store_weight(
+                    args=args, hubert=teach_hub, clsf=teach_clsf, mode='adaptation', 
+                    metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
+                    root_path=args.output_path
+                )
+        worst_list, shft_typs = collect_worst_item(
+            args=args, corruption_types=corruption_types, idx_cache=idx_cache, 
+            pred_cache=pred_cache, output_cache=output_cache, step=epoch,
+            logger=wandb_run, feature_label=False
+        )
+        if epoch == args.max_epoch: break
+        print('Adapting...')
+        for teach_hub in teach_hubs: teach_hub.train()
+        for teach_clsf in teach_clsfs: teach_clsf.train()
+        for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
+            adpt_set = SpeechCommandsV2C(
+                root_path=args.adpt_set_path, corruption_level=args.corruption_level, 
+                corruption_type=corruption_type, data_tf=data_tfs[0]
+            )
+            adpt_set = PseudoLabelSet(dataset=adpt_set, pseudo_labels=worst_list[corruption_type], label_position=1)
+            adpt_set = Subset(dataset=adpt_set, id_list=list(worst_list[corruption_type].keys()))
+
+            adpt_loader = DataLoader(
+                dataset=adpt_set, batch_size=args.batch_size, shuffle=True, drop_last=False,
+                num_workers=args.num_workers
+            )
+            teach_hub, teach_clsf = teach_hubs[idx], teach_clsfs[idx]
+            optimizer = optimizers[idx]
+
+            for features, labels in tqdm(adpt_loader, desc=f'{corruption_type}-{args.corruption_level}', position=1, leave=False):
+                if corruption_type not in shft_typs: break
+                if corruption_type in args.forbid_ls: break
+                features, labels = features.to(args.device), labels.to(args.device)  
+                if features.shape[0] == 1:
+                    features = features.repeat(4, 1, 1)
+                    labels = labels.repeat(4)
+
+                outputs, _ = teach_clsf(teach_hub(features)[0])
+                clsf_loss = loss_fun(outputs, labels)
+
+                optimizer.zero_grad()
+                clsf_loss.backward()
+                optimizer.step()
+
+            if epoch % args.interval == 0:
+                lr_scheduler(
+                    optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
+                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+                )
 
     wandb_run.finish()
     print('END!')
