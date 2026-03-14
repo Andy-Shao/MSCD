@@ -1,43 +1,39 @@
 import argparse
 from tqdm import tqdm
-import os
 
-import torch 
+import torch
 from torch import nn
 from torch.utils.data import DataLoader
 import torchaudio
-from torchaudio.models import Wav2Vec2Model
 
-from lib import constants
 from lib.utils import ConfigDict
-from lib.corruption import CorruptionMeta
 from AuT.lib.model import AudioClassifier
 
-def load_weight(
-    args:argparse.Namespace, hubert:Wav2Vec2Model, clsf:AudioClassifier, mode='origin', metaInfo:CorruptionMeta=None
-) -> None:
-    assert mode in ['origin', 'adaptation'], 'No support'
-    if mode == 'origin':
-        h_p = os.path.join(args.orig_wght_pth, f'hubert-{args.model_level}-{constants.dataset_dic[args.dataset]}.pt')
-        c_p = os.path.join(args.orig_wght_pth, f'clsModel-{args.model_level}-{constants.dataset_dic[args.dataset]}.pt')
-    elif mode == 'adaptation':
-        h_p = os.path.join(args.adpt_wght_path, f'hubert-{args.model_level}-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
-        c_p = os.path.join(args.adpt_wght_path, f'clsModel-{args.model_level}-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
-    hubert.load_state_dict(state_dict=torch.load(h_p, weights_only=True))
-    clsf.load_state_dict(state_dict=torch.load(c_p, weights_only=True))
+def teach_inference(
+    args:argparse.Namespace, corruption_types:list[str], hubs:list[nn.Module], clsfs:list[nn.Module],
+    data_loader:DataLoader
+) -> dict[str, float]:
+    for hub in hubs: hub.eval()
+    for clsf in clsfs: clsf.eval()
+    ttl_corrs, ttl_sizes = {it: 0. for it in corruption_types}, {it: 0. for it in corruption_types}
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            corruption_type = corruption_types[i]
+            features = data[i].to(args.device)
+            hub = hubs[i]
+            clsf = clsfs[i]
 
-def inference(args:argparse.Namespace, hubert:nn.Module, clsModel:nn.Module, data_loader:DataLoader):
-    hubert.eval(); clsModel.eval()
-    ttl_corr = 0.; ttl_size = 0.
-    for features, labels in tqdm(data_loader):
-        features, labels = features.to(args.device), labels.to(args.device)
-
-        with torch.no_grad():
-            outputs, _ = clsModel(hubert(features)[0])
-        ttl_size += labels.shape[0]
-        _, preds = torch.max(input=outputs.detach(), dim=1)
-        ttl_corr += (preds == labels).sum().cpu().item()
-    return ttl_corr / ttl_size
+            with torch.inference_mode():
+                outputs, _ = clsf(hub(features)[0])
+                outputs = outputs.detach().cpu()
+            _, preds = torch.max(outputs, dim=1)
+            ttl_corrs[corruption_type] += (preds==labels).sum().item()
+            ttl_sizes[corruption_type] += labels.shape[0]
+    accus = {}
+    for corruption_type in corruption_types:
+        accus[corruption_type] = ttl_corrs[corruption_type]/ttl_sizes[corruption_type]
+    return accus
 
 def build_model(args:argparse.Namespace, pre_weight:bool=True) -> tuple[torchaudio.models.Wav2Vec2Model, AudioClassifier]:
     bundle = torchaudio.pipelines.HUBERT_BASE
