@@ -201,7 +201,7 @@ if __name__ == '__main__':
 
     data_tfs = [ReduceChannel()] * len(corruption_types)
 
-    max_pl_accu = 0.
+    # max_pl_accu = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_accu_analyzing(
@@ -212,9 +212,9 @@ if __name__ == '__main__':
             args=args, hubs=teach_hubs, clsfs=teach_clsfs, data_tfs=data_tfs, step=epoch, logger=wandb_run,
             corruption_types=corruption_types
         )
-        if max_pl_accu <= pseudo_accu:
-            max_pl_accu = pseudo_accu
-            for i, corruption_type in enumerate(corruption_types):
+        # if max_pl_accu <= pseudo_accu:
+        #     max_pl_accu = pseudo_accu
+        for i, corruption_type in enumerate(corruption_types):
                 teach_hub, teach_clsf = teach_hubs[i], teach_clsfs[i]
                 store_weight(
                     args=args, hubert=teach_hub, clsf=teach_clsf, mode='adaptation', 
