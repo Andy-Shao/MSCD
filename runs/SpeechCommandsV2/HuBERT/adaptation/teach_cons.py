@@ -140,9 +140,9 @@ if __name__ == '__main__':
     ap.add_argument('--lr_momentum', type=float, default=.9)
     ap.add_argument('--interval', type=int, default=1, help='interval number')
 
-    ap.add_argument('--use_pre_trained_weigth', action='store_true')
+    # ap.add_argument('--use_pre_trained_weigth', action='store_true')
     ap.add_argument('--model_level', type=str, default='base', choices=['base', 'large', 'x-large'])
-    ap.add_argument('--hub_lr_decay', type=float, default=1.0)
+    # ap.add_argument('--hub_lr_decay', type=float, default=1.0)
     ap.add_argument('--hub_lr_decaies', type=str)
     ap.add_argument('--clsf_lr_decay', type=float, default=1.0)
 

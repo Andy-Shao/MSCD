@@ -9,6 +9,29 @@ import torchaudio
 from lib.utils import ConfigDict
 from AuT.lib.model import AudioClassifier
 
+def mlt_inference(
+    args:argparse.Namespace, corruption_types:list[str], hub:nn.Module, clsf:nn.Module, 
+    data_loader:DataLoader
+) -> tuple[float, dict[str, float]]:
+    hub.eval(); clsf.eval()
+    ttl_corrs, ttl_sizes = {it: 0. for it in corruption_types}, {it: 0. for it in corruption_types}
+    local_accus = {}
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            corruption_type = corruption_types[i]
+            features = data[i].to(args.device)
+            with torch.inference_mode():
+                outputs, _ = clsf(hub(features)[0])
+                outputs = outputs.detach().cpu()
+            _, preds = torch.max(outputs, dim=1)
+            ttl_corrs[corruption_type] += (preds==labels).sum().item()
+            ttl_sizes[corruption_type] += labels.shape[0]
+    for corruption_type in corruption_types:
+        local_accus[corruption_type] = ttl_corrs[corruption_type]/ttl_sizes[corruption_type]
+    global_accu = sum([v for k,v in ttl_corrs.items()])/sum([v for k,v in ttl_sizes.items()])
+    return global_accu, local_accus
+
 def teach_inference(
     args:argparse.Namespace, corruption_types:list[str], hubs:list[nn.Module], clsfs:list[nn.Module],
     data_loader:DataLoader
