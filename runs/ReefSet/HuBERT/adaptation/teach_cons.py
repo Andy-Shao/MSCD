@@ -17,9 +17,10 @@ from lib.utils import print_argparse, make_unless_exits
 from lib.component import Components, AudioClip, ReduceChannel, OneHot2Index
 from lib.loss import CrossEntropyLabelSmooth
 from lib.corruption import CorruptionMeta
-from lib.optimizer import build_optimizer
+from lib.optimizer import build_optimizer, lr_scheduler
 from lib.acousSet import ReefSetC
-from lib.dataset import IdxSet
+from lib.dataset import IdxSet, PseudoLabelSet, Subset
+from lib.adaptation import collect_worst_item
 from ..utils import build_model, teach_inference
 from HuBERT.lib.utils import load_weight
 
@@ -215,5 +216,48 @@ if __name__ == '__main__':
             args=args, hubs=teach_hubs, clsfs=teach_clsfs, data_tfs=data_tfs, corruption_types=corruption_types,
             step=epoch, logger=wandb_run
         )
-        exit()
+        worst_list, shft_typs = collect_worst_item(
+            args=args, corruption_types=corruption_types, idx_cache=idx_cache, pred_cache=pred_cache, 
+            output_cache=output_cache, step=epoch, logger=wandb_run, feature_label=False
+        )
+        if epoch == args.max_epoch: break
+        print('Adapting...')
+        for teach_hub in teach_hubs: teach_hub.train()
+        for teach_clsf in teach_clsfs: teach_clsf.train()
+        for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
+            fsc = ReefSetC(
+                root_path=args.adpt_set_path, corruption_type=corruption_type, corruption_level=args.corruption_level,
+                data_tf=data_tfs[0], label_tf=OneHot2Index()
+            )
+            fsc = PseudoLabelSet(dataset=fsc, pseudo_labels=worst_list[corruption_type], label_position=1)
+            fsc = Subset(dataset=fsc, id_list=list(worst_list[corruption_type].keys()))
+            fsc_loader = DataLoader(
+                dataset=fsc, batch_size=args.batch_size, shuffle=True, drop_last=False, 
+                num_workers=args.num_workers
+            )
+            teach_hub, teach_clsf = teach_hubs[idx], teach_clsfs[idx]
+            optimizer = optimizers[idx]
+
+            for features, labels in tqdm(fsc_loader, desc=f'{corruption_type}-{args.corruption_level}', position=1, leave=False):
+                if corruption_type not in shft_typs: break
+                if corruption_type in args.forbid_ls: break
+                features, labels = features.to(args.device), labels.to(args.device)  
+                if features.shape[0] == 1:
+                    features = features.repeat(4, 1)
+                    labels = labels.repeat(4)
+
+                outputs, _ = teach_clsf(teach_hub(features)[0])
+                clsf_loss = loss_fun(outputs, labels)
+
+                optimizer.zero_grad()
+                clsf_loss.backward()
+                optimizer.step()
+
+            if epoch % args.interval == 0:
+                lr_scheduler(
+                    optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
+                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+                )
+
+    wandb_run.finish()
     print('END!')
