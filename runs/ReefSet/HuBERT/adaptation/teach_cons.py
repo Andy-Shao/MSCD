@@ -5,6 +5,8 @@ import random
 import json
 import wandb
 from tqdm import tqdm
+from sklearn.metrics import roc_auc_score
+import copy
 
 import torch
 from torch import nn
@@ -17,8 +19,70 @@ from lib.loss import CrossEntropyLabelSmooth
 from lib.corruption import CorruptionMeta
 from lib.optimizer import build_optimizer
 from lib.acousSet import ReefSetC
+from lib.dataset import IdxSet
 from ..utils import build_model, teach_inference
 from HuBERT.lib.utils import load_weight
+
+def pseudo_labeling(
+        args:argparse.Namespace, hubs:list[nn.Module], clsfs:list[nn.Module], data_tfs:list[nn.Module],
+        corruption_types:list[str], step:int, logger
+    ):
+    print("Pseudo-labeling...")
+    for hub in hubs: hub.eval()
+    for clsf in clsfs: clsf.eval()
+    output_cache = {}
+
+    adpt_set = ReefSetC(
+        root_path=args.adpt_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level, 
+        data_tf=data_tfs, label_tf=OneHot2Index()
+    )
+    adpt_set = IdxSet(dataset=adpt_set)
+    adpt_loader = DataLoader(
+        dataset=adpt_set, batch_size=args.batch_size, shuffle=False, drop_last=False, num_workers=args.num_workers
+    )
+
+    for j, data in tqdm(enumerate(adpt_loader), total=len(adpt_loader)):
+        labels = data[-1]
+        idxs = data[0]
+        for i in range(1, len(data)-1):
+            features = data[i].to(args.device)
+            hub = hubs[i-1]
+            clsf = clsfs[i-1]
+            corruption_type = corruption_types[i-1]
+
+            with torch.inference_mode():
+                outputs, _ = clsf(hub(features)[0])
+                outputs = outputs.detach().cpu()
+            preds = nn.functional.softmax(outputs, dim=1) * args.elect_weights[corruption_type]
+            if i == 1: final_preds = preds
+            else: final_preds += preds
+            if j == 0: output_cache[corruption_type] = [outputs]
+            else: output_cache[corruption_type].append(outputs)
+        if j == 0: 
+            pred_cache = [torch.max(final_preds, dim=1)[1]]
+            idx_cache = [idxs]
+            y_t = [copy.deepcopy(labels)]
+            y_s = [nn.functional.softmax(final_preds, dim=1)]
+        else: 
+            pred_cache.append(torch.max(final_preds, dim=1)[1])
+            idx_cache.append(idxs)
+            y_t.append(copy.deepcopy(labels))
+            y_s.append(nn.functional.softmax(final_preds, dim=1))
+    pl_roc_auc = roc_auc_score(
+        y_true=torch.concat(y_t, dim=0).numpy(), y_score=torch.concat(y_s, dim=0).numpy(), average='macro', 
+        multi_class='ovr'
+    )
+    print(f'Teacher election pseudo-labeling ROC-AUC is: {pl_roc_auc:.4f}')
+    logger.log(data={'Adaptation/Pseudo-label ROC-AUC': pl_roc_auc}, step=step)
+
+    # Merging output cache
+    tmp = {}
+    for key, value in output_cache.items():
+        tmp[key] = torch.concat(value, dim=0)
+    output_cache = tmp
+    pred_cache = torch.concat(pred_cache, dim=0)
+    idx_cache = torch.concat(idx_cache, dim=0)
+    return output_cache, pred_cache, idx_cache, pl_roc_auc
 
 def teacher_roc_auc_analyzing(
         args:argparse.Namespace, hubs:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
@@ -145,6 +209,10 @@ if __name__ == '__main__':
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_roc_auc_analyzing(
             args=args, hubs=teach_hubs, clsfs=teach_clsfs, corruption_types=corruption_types, data_tfs=data_tfs, 
+            step=epoch, logger=wandb_run
+        )
+        output_cache, pred_cache, idx_cache, pl_roc_auc = pseudo_labeling(
+            args=args, hubs=teach_hubs, clsfs=teach_clsfs, data_tfs=data_tfs, corruption_types=corruption_types,
             step=epoch, logger=wandb_run
         )
         exit()
