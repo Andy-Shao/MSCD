@@ -22,7 +22,7 @@ from lib.acousSet import ReefSetC
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
 from lib.adaptation import collect_worst_item
 from ..utils import build_model, teach_inference
-from HuBERT.lib.utils import load_weight
+from HuBERT.lib.utils import load_weight, store_weight
 
 def pseudo_labeling(
         args:argparse.Namespace, hubs:list[nn.Module], clsfs:list[nn.Module], data_tfs:list[nn.Module],
@@ -205,7 +205,7 @@ if __name__ == '__main__':
         ReduceChannel()
     ])] * len(corruption_types)
 
-    max_roc_auc = 0.
+    # max_roc_auc = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_roc_auc_analyzing(
@@ -220,6 +220,14 @@ if __name__ == '__main__':
             args=args, corruption_types=corruption_types, idx_cache=idx_cache, pred_cache=pred_cache, 
             output_cache=output_cache, step=epoch, logger=wandb_run, feature_label=False
         )
+        for i, corruption_type in enumerate(corruption_types):
+            teach_hub, teach_clsf = teach_hubs[i], teach_clsfs[i]
+            store_weight(
+                args=args, hubert=teach_hub, clsf=teach_clsf, mode='adaptation', 
+                metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level), 
+                root_path=args.output_path
+            )
+
         if epoch == args.max_epoch: break
         print('Adapting...')
         for teach_hub in teach_hubs: teach_hub.train()
