@@ -17,9 +17,49 @@ from lib.utils import make_unless_exits, print_argparse
 from lib.component import ReduceChannel, Components, AudioClip, OneHot2Index
 from lib.corruption import CorruptionMeta
 from lib.acousSet import ReefSetC
-from lib.dataset import IdxSet
-from ..utils import build_model
-from HuBERT.lib.utils import load_weight
+from lib.dataset import IdxSet, PseudoLabelSet
+from lib.optimizer import build_optimizer, lr_scheduler
+from lib.loss import ContrastiveLoss
+from ..utils import build_model, mlt_inference
+from HuBERT.lib.utils import load_weight, store_weight
+
+def student_roc_auc_analyzing(
+    args:argparse.Namespace, hub:nn.Module, clsf:nn.Module, corruption_types:list[str],
+    data_tfs:list[nn.Module], step:int, logger
+) -> float:
+    print('Adapataion set accuracy analyzing...')
+    adpt_rfc = ReefSetC(
+        root_path=args.adpt_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level, 
+        data_tf=data_tfs, label_tf=OneHot2Index()
+    )
+    adpt_loader = DataLoader(
+        dataset=adpt_rfc, batch_size=args.batch_size, shuffle=False, drop_last=False, num_workers=args.num_workers
+    )
+    adpt_gl_ra, adpt_lcl_ra = mlt_inference(
+        args=args, corruption_types=corruption_types, hub=hub, clsf=clsf, data_loader=adpt_loader,
+    )
+    print('Adaptation local ROC-AUCs are:', {key: round(value, ndigits=4) for key, value in adpt_lcl_ra.items()})
+    print(f'Adaptation global ROC-AUC is: {adpt_gl_ra:.4f}')
+    logger.log(data={f'Adaptation/{k} ROC-AUC': v for k,v in adpt_lcl_ra.items()}, step=step)
+    logger.log(data={f'Adaptation/Global ROC-AUC': adpt_gl_ra}, step=step)
+
+    print('Evaluation set accuracy analyzing...')
+    eval_rfc = ReefSetC(
+        root_path=args.eval_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level,
+        data_tf=data_tfs, label_tf=OneHot2Index()
+    )
+    eval_loader = DataLoader(
+        dataset=eval_rfc, batch_size=args.batch_size, shuffle=False, drop_last=False, num_workers=args.num_workers
+    )
+    eval_gl_ra, eval_lcl_ra = mlt_inference(
+        args=args, corruption_types=corruption_types, hub=hub, clsf=clsf, data_loader=eval_loader
+    )
+    print('Evaluation local ROC-AUCs are:', {key: round(value, ndigits=4) for key, value in eval_lcl_ra.items()})
+    print(f'Evaluation global ROC-AUC is: {eval_gl_ra:.4f}')
+    logger.log(data={f'Evaluation/{k} ROC-AUC': v for k,v in eval_lcl_ra.items()}, step=step)
+    logger.log(data={f'Evaluation/Global ROC-AUC': eval_gl_ra}, step=step)
+
+    return adpt_gl_ra
 
 def pseudo_labeling(args:argparse.Namespace, corruption_types:list[str], data_tfs:list[nn.Module]):
     print('Loading all teachers...')
@@ -162,4 +202,77 @@ if __name__ == '__main__':
 
     print("Initialization...")
     pseudo_labels = pseudo_labeling(args=args, corruption_types=corruption_types, data_tfs=data_tfs)
+    adpt_set = ReefSetC(
+        root_path=args.adpt_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level, 
+        data_tf=data_tfs, label_tf=OneHot2Index()
+    )
+    adpt_set = PseudoLabelSet(dataset=adpt_set, pseudo_labels=pseudo_labels, label_position=len(corruption_types))
+    adpt_loader = DataLoader(
+        dataset=adpt_set, batch_size=args.batch_size, shuffle=True, drop_last=False, num_workers=args.num_workers
+    )
+    std_hub, std_clsf = build_model(args=args)
+    load_weight(args=args, hubert=std_hub, clsf=std_clsf, mode='origin')
+    optimizer = build_optimizer(
+        lr=args.lr, auT=std_hub, auC=std_clsf, auT_decay=args.hub_lr_decay, auC_decay=args.clsf_lr_decay
+    )
+    ctr_loss_fun = ContrastiveLoss(
+        hi_def_smth=args.hi_def_smth, class_num=args.class_num, device=args.device, dist=args.ctr_dist
+    )
+
+    print('Student Adaptation')
+    max_roc_auc = 0.
+    for epoch in range(args.max_epoch+1):
+        print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
+        print('Inferencing...')
+        global_roc_auc = student_roc_auc_analyzing(
+            args=args, hub=std_hub, clsf=std_clsf, corruption_types=corruption_types, data_tfs=data_tfs,
+            step=epoch, logger=wandb_run
+        )
+        if max_roc_auc <= global_roc_auc:
+            max_roc_auc = global_roc_auc
+            store_weight(
+                args=args, hubert=std_hub, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path
+            )
+        
+        if epoch >= args.max_epoch: break
+        print('Adaptating...')
+        std_hub.train(); std_clsf.train()
+        ttl_loss = 0.; ttl_clsf_loss = 0.; ttl_ctr_loss = 0.
+        for adpt_data in tqdm(adpt_loader):
+            labels = adpt_data[-1].to(args.device)
+            for i in range(len(adpt_data)-1):
+                features = adpt_data[i].to(args.device)
+
+                outputs, _ = std_clsf(std_hub(features)[0])
+
+                # classification loss
+                clsf_loss = (-labels * nn.functional.log_softmax(outputs, dim=1)).sum(dim=1) # cross-entropy loss
+                clsf_loss = clsf_loss.mean()
+
+                # contrastive loss
+                if args.ctr_rt > 0.:
+                    ctr_loss = args.ctr_rt * ctr_loss_fun(outputs, labels)
+                else: ctr_loss = torch.tensor(0.).to(device=args.device)
+
+                if i == 0:
+                    loss = clsf_loss + ctr_loss
+                else: 
+                    loss += clsf_loss + ctr_loss
+                ttl_clsf_loss += clsf_loss.detach().cpu().item()
+                ttl_ctr_loss += ctr_loss.detach().cpu().item()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            ttl_loss += loss.detach().cpu().item()
+        wandb_run.log(data={
+            'Loss/TTL Loss': ttl_loss/(len(adpt_loader)*len(corruption_types)),
+            'Loss/Classification loss': ttl_clsf_loss/(len(adpt_loader)*len(corruption_types)),
+            'Loss/Contrastive loss': ttl_ctr_loss/(len(adpt_loader)*len(corruption_types)),
+        }, step=epoch)
+        if epoch % args.interval == 0:
+            lr_scheduler(
+                optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
+                gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+            )
+    wandb_run.finish()
     print('END!')
