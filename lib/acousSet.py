@@ -6,6 +6,42 @@ from torch import nn
 from torch.utils.data import Dataset
 import torchaudio
 
+class ReefSet(Dataset):
+    def __init__(
+            self, root_path:str, mode:str, include_rate:bool=False, data_tf:nn.Module=None, label_tf:nn.Module=None,
+            train_annotations_file:str='./data/ReefSet/train_annotations.csv', 
+            test_annotations_file:str='./data/ReefSet/test_annotations.csv', label_mode:str='single'
+        ):
+        super().__init__()
+        assert label_mode in ['multiple', 'single'], 'No support'
+        self.root_path = root_path
+        assert mode in ['train', 'test'], 'No support'
+        self.mode = mode
+        self.include_rate = include_rate
+        self.data_tf = data_tf
+        self.label_tf = label_tf
+        self.meta_info = pd.read_csv(train_annotations_file) if mode == 'train' else pd.read_csv(test_annotations_file)
+        self.label_dic = ReefSetC.__label_dic__(label_mode)
+
+    def __len__(self):
+        return len(self.meta_info)
+    
+    def __getitem__(self, index):
+        meta = self.meta_info.iloc[index]
+        wavform, sample_rate = torchaudio.load(os.path.join(self.root_path, 'full_dataset', meta['file_name']), normalize=True)
+        eye_matrix = torch.eye(len(self.label_dic), dtype=float)
+        label = torch.zeros_like(eye_matrix[0], dtype=float)
+        for k in self.label_dic[meta['label']]:
+            label += eye_matrix[k]
+        if self.data_tf is not None:
+            wavform = self.data_tf(wavform)
+        if self.label_tf is not None:
+            label = self.label_tf(label)
+        if self.include_rate: 
+            return wavform, label, sample_rate
+        else:
+            return wavform, label
+
 class ReefSetC(Dataset):
     meta_file = 'test_annotations.csv'
     def __init__(
