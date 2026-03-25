@@ -234,7 +234,7 @@ if __name__ == '__main__':
                 if corruption_type in args.forbid_ls: break
                 features, labels = features.to(args.device), labels.to(args.device)
                 if features.shape[0] == 1:
-                    features = features.repeat(4, 1, 1)
+                    features = features.repeat(4, 1)
                     labels = labels.repeat(4)
 
                 outputs = teach_clsf(teach_hub(features)[0])
