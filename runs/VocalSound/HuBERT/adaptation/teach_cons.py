@@ -200,7 +200,7 @@ if __name__ == '__main__':
         )
         if max_pl_accu <= pseudo_accu:
             max_pl_accu = pseudo_accu
-            for i, corruption_type in enumerate(corruption_type):
+            for i, corruption_type in enumerate(corruption_types):
                 store_weight(
                     args=args, hubert=teach_hubs[i], clsf=teach_clsfs[i], mode='adaptation', 
                     metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
