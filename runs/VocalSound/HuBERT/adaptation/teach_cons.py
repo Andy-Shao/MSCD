@@ -126,7 +126,7 @@ if __name__ == '__main__':
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
 
-    ap.add_argument('--lr', type=float, default=1e-2)
+    ap.add_argument('--lrs', type=str)
     ap.add_argument('--lr_cardinality', type=int, default=40)
     ap.add_argument('--lr_gamma', type=int, default=10)
     ap.add_argument('--lr_threshold', type=int, default=1)
@@ -150,6 +150,7 @@ if __name__ == '__main__':
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.arch = 'HuBERT'
     args.elect_weights = json.loads(args.elect_weights)
+    args.lrs = json.loads(args.lrs)
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = args.forbid_ls.split(',')
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.TEACHER_CONSENSUS)
@@ -182,7 +183,7 @@ if __name__ == '__main__':
         load_weight(args=args, hubert=teach_hub, clsf=teach_clsf, mode='adaptation', metaInfo=cmeta)
         teach_hubs.append(teach_hub)
         teach_clsfs.append(teach_clsf)
-        optimizer = build_optimizer(lr=args.lr, auT=teach_hub, auC=teach_clsf, auT_decay=args.hub_lr_decay, auC_decay=args.clsf_lr_decay)
+        optimizer = build_optimizer(lr=args.lrs[corruption_type], auT=teach_hub, auC=teach_clsf, auT_decay=args.hub_lr_decay, auC_decay=args.clsf_lr_decay)
         optimizers.append(optimizer)
     data_tfs = [ReduceChannel()] * len(corruption_types)
 
