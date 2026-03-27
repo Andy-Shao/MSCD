@@ -4,6 +4,13 @@ from tqdm import tqdm
 import torch
 from torch import nn
 
+from HuBERT.lib.model import HuBClassifier
+
+def hub_clsf_freeze(model:HuBClassifier):
+    for component in model.modules():
+        if isinstance(component, nn.BatchNorm1d):
+            component.eval()
+
 def amaut_freeze(model:nn.Module, batch:bool=True, drop:bool=True):
     for component in model.modules():
         if isinstance(component, nn.BatchNorm1d) and batch:
