@@ -29,13 +29,13 @@ class ContrastiveLoss(nn.Module):
         return marks
 
     def forward(self, x:torch.Tensor, pseudo_labels:torch.Tensor) -> torch.Tensor:
-        if self.dist == 'cos_sim':
+        if self.dist == 'cos_sim': # consine similarity
             x_norm = nn.functional.normalize(x, p=2, dim=1)
             dist_val = x_norm @ x_norm.T # self-consine similarity
-        elif self.dist == 'l2':
+        elif self.dist == 'l2': # L2-norm
             x_norm = nn.functional.normalize(x, p=2, dim=1)
             dist_val = torch.cdist(x1=x_norm, x2=x_norm, p=2)
-        elif self.dist == 'sq_l2':
+        elif self.dist == 'sq_l2': # squared L2-norm
             x_norm = nn.functional.normalize(x, p=2, dim=1)
             dist_val = 2 - 2 * (x_norm @ x_norm.T)
             dist_val = dist_val.clamp_min_(0)
