@@ -19,6 +19,7 @@ from lib.spSet import VocalSoundC
 from lib.dataset import IdxSet, PseudoLabelSet
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.loss import ContrastiveLoss
+from lib.adaptation import hub_clsf_freeze
 from ..utils import build_model, mlt_inference
 from HuBERT.lib.utils import load_weight, store_weight
 
@@ -226,6 +227,7 @@ if __name__ == '__main__':
         if epoch >= args.max_epoch: break
         print('Adaptating...')
         std_hub.train(); std_clsf.train()
+        hub_clsf_freeze(model=std_clsf)
         ttl_loss = 0.; ttl_clsf_loss = 0.; ttl_ctr_loss = 0.
         for adpt_data in tqdm(adpt_loader):
             labels = adpt_data[-1].to(args.device)
