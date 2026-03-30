@@ -253,9 +253,9 @@ if __name__ == '__main__':
                 ttl_ctr_loss += ctr_loss.detach().cpu().item()
             optimizer.step()
         wandb_run.log(data={
-            'Loss/TTL Loss': ttl_loss/(len(adpt_loader)*len(corruption_types)),
+            'Loss/TTL Loss': ttl_loss/(len(adpt_loader)),
             'Loss/Classification loss': ttl_clsf_loss/(len(adpt_loader)*len(corruption_types)),
-            'Loss/Contrastive loss': ttl_ctr_loss/(len(adpt_loader)),
+            'Loss/Contrastive loss': ttl_ctr_loss/(len(adpt_loader)*len(corruption_types)),
         }, step=epoch)
         if epoch % args.interval == 0:
             lr_scheduler(
