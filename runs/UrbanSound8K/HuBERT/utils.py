@@ -44,3 +44,32 @@ def teach_inference(
         y_pred = torch.concat(y_preds[corruption_type], dim=0)
         f1s[corruption_type] = f1_score(y_true=y_trues.numpy(), y_pred=y_pred.numpy(), average='macro')
     return f1s
+
+def mlt_inference(
+    args:argparse.Namespace, corruption_types:list[str], hub:nn.Module, clsf:nn.Module, 
+    data_loader:DataLoader
+) -> tuple[float, dict[str, float]]:
+    hub.eval(); clsf.eval()
+    y_ts, y_ps = {k:[] for k in corruption_types}, {k:[] for k in corruption_types}
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            features = data[i].to(args.device)
+            corruption_type = corruption_types[i]
+            with torch.inference_mode():
+                outputs = clsf(hub(features)[0])
+                outputs = outputs.detach().cpu()
+            _, preds = torch.max(outputs, dim=1)
+            y_ts[corruption_type].append(labels)
+            y_ps[corruption_type].append(preds)
+    local_f1s = {}
+    for corruption_type in corruption_types:
+        y_t = torch.concat(y_ts[corruption_type], dim=0)
+        y_p = torch.concat(y_ps[corruption_type], dim=0)
+        local_f1s[corruption_type] = f1_score(y_true=y_t.numpy(), y_pred=y_p.numpy(), average='macro')
+        y_ts[corruption_type] = y_t
+        y_ps[corruption_type] = y_p
+    y_t = torch.concat([v for k,v in y_ts.items()], dim=0)
+    y_p = torch.concat([v for k,v in y_ps.items()], dim=0)
+    global_f1 = f1_score(y_true=y_t.numpy(), y_pred=y_p.numpy(), average='macro')
+    return global_f1, local_f1s
