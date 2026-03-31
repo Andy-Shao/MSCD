@@ -194,7 +194,7 @@ if __name__ == '__main__':
         ReduceChannel(),
     ])] * len(corruption_types)
 
-    max_pl_f1 = 0.
+    # max_pl_f1 = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_f1_analyzing(
@@ -205,9 +205,9 @@ if __name__ == '__main__':
             args=args, hubs=teach_hubs, clsfs=teach_clsfs, corruption_types=corruption_types, data_tfs=data_tfs, 
             step=epoch, logger=wandb_run
         )
-        if max_pl_f1 <= pseudo_f1:
-            max_pl_f1 = pseudo_f1
-            for i, corruption_type in enumerate(corruption_types):
+        # if max_pl_f1 <= pseudo_f1:
+        #     max_pl_f1 = pseudo_f1
+        for i, corruption_type in enumerate(corruption_types):
                 store_weight(
                     args=args, hubert=teach_hubs[i], clsf=teach_clsfs[i], mode='adaptation', 
                     metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
