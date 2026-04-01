@@ -4,7 +4,10 @@ import torch
 from torch import nn
 
 class ContrastiveLoss(nn.Module):
-    def __init__(self, hi_def_smth:float, class_num:int, device:str, eps:float=1e-8, dist:Literal['cos_sim', 'l2', 'sq_l2']='l2'):
+    def __init__(
+        self, hi_def_smth:float, class_num:int, device:str, eps:float=1e-8, 
+        dist:Literal['cos_sim', 'l2', 'sq_l2']='l2', tau:float=1.
+    ):
         super().__init__()
         self.log_softmax = nn.LogSoftmax(dim=1)
         self.hi_def_smth = hi_def_smth
@@ -12,6 +15,7 @@ class ContrastiveLoss(nn.Module):
         self.device = device
         self.eps = eps
         self.dist = dist
+        self.tau = tau
 
     def __marking__(self, outs:torch.Tensor, pseudo_labels:torch.Tensor) -> torch.Tensor:
         hi_mark = (1-self.hi_def_smth)*torch.eye(self.class_num)[0] + self.hi_def_smth/self.class_num
@@ -39,6 +43,7 @@ class ContrastiveLoss(nn.Module):
             x_norm = nn.functional.normalize(x, p=2, dim=1)
             dist_val = 2 - 2 * (x_norm @ x_norm.T)
             dist_val = dist_val.clamp_min_(0)
+        if self.tau != 1.: dist_val = dist_val / self.tau
         marks = self.__marking__(outs=x, pseudo_labels=pseudo_labels)
         mark_norm = marks / (marks.abs().sum(dim=1, keepdim=True)+self.eps)
         loss = mark_norm * self.log_softmax(dist_val)
