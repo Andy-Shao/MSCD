@@ -20,7 +20,8 @@ architecture_dic = {
     'AMAuT': 'AuT',
     'HuBERT': 'HuB',
     'AST': 'AST',
-    'CoNMix': 'CoN'
+    'CoNMix': 'CoN',
+    'PANNs': 'PAN'
 }
 
 hubert_level_dic = {
