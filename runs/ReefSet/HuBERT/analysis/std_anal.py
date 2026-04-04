@@ -23,6 +23,7 @@ if __name__ == '__main__':
     ap.add_argument('--output_file', type=str, default='result.csv')
     ap.add_argument('--batch_size', type=int, default=64)
     ap.add_argument('--std_adpt_wght_pth', type=str)
+    ap.add_argument('--orig_wght_pth', type=str)
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
 
     ap.add_argument('--model_level', type=str, default='base', choices=['base', 'large', 'x-large'])
@@ -55,11 +56,10 @@ if __name__ == '__main__':
         AudioClip(max_length=args.audio_length, mode='head', is_random=False),
         ReduceChannel()
     ])] * len(corruption_types)
-    records = pd.DataFrame(columns=['Model', 'Num of Params', 'Corruption', 'Accuracy'])
+    records = pd.DataFrame(columns=['Model', 'Num of Params', 'Corruption', 'Befor Adaptation', 'After Adaptation'])
 
     print("Initialization...")
     std_hub, std_clsf = build_model(args=args)
-    load_weight(args=args, hubert=std_hub, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION)
     aut_pth, clsf_pth = __cal_model_path__(args=args, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path)
     aut_pth = aut_pth.replace('.pt', '.txt')
     clsf_pth = clsf_pth.replace('.pt', '.txt')
@@ -75,11 +75,22 @@ if __name__ == '__main__':
     )
 
     print('Analyzing...')
-    global_accu, local_accus = mlt_inference(
+    print('Before Adaptation Analysis...')
+    load_weight(args=args, hubert=std_hub, clsf=std_clsf, mode='origin')
+    org_glb_roc, org_lcl_rocs = mlt_inference(
         args=args, corruption_types=corruption_types, hub=std_hub, clsf=std_clsf, data_loader=eval_loader
     )
-    for corruption_type, local_accu in local_accus.items():
-        records.loc[len(records)] = [args.arch, param_num, f'{corruption_type}-{args.corruption_level}', local_accu]
-    records.loc[len(records)] = [args.arch, param_num, 'Global', global_accu]
+
+    print('After Adaptation Analysis...')
+    load_weight(args=args, hubert=std_hub, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION)
+    global_roc, local_rocs = mlt_inference(
+        args=args, corruption_types=corruption_types, hub=std_hub, clsf=std_clsf, data_loader=eval_loader
+    )
+    for corruption_type, local_roc in local_rocs.items():
+        records.loc[len(records)] = [
+            args.arch, param_num, f'{corruption_type}-{args.corruption_level}', org_lcl_rocs[corruption_type],
+            local_roc
+        ]
+    records.loc[len(records)] = [args.arch, param_num, 'Global', org_glb_roc, global_roc]
     records.to_csv(os.path.join(args.output_path, args.output_file))
     print('END!')
