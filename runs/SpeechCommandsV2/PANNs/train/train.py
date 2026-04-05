@@ -15,7 +15,7 @@ from lib.spSet import SpeechCommandsV2
 from lib.component import Components, ReduceChannel, AudioPadding
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.loss import CrossEntropyLabelSmooth
-from PANNs.lib.utils import __cal_model_path__, store_weight
+from PANNs.lib.utils import __cal_model_path__, store_weight, pan_freeze
 from ..utils import build_model, inference
 
 if __name__ == '__main__':
@@ -103,6 +103,7 @@ if __name__ == '__main__':
         print(f'Epoch:{epoch+1}/{args.max_epoch}')
         print('Training...')
         pan.train(); clsf.train()
+        pan_freeze(pan=pan, batch1d=True, batch2d=True)
         train_loss = 0.
         ttl_corr, ttl_size = 0., 0.
         for features, labels in tqdm(train_loader):
