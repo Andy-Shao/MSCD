@@ -2,11 +2,12 @@ import argparse
 import os
 from typing import Literal
 
-from lib import constants
-from lib.corruption import CorruptionMeta
-
 import torch
 from torch import nn
+
+from lib import constants
+from lib.corruption import CorruptionMeta
+from PANNs.models import Wavegram_Logmel_Cnn14
 
 def __cal_model_path__(
     args:argparse.Namespace, mode:Literal['origin', 'adaptation', 'KD']='origin', 
@@ -43,3 +44,10 @@ def store_weight(
     a_p, c_p = __cal_model_path__(args=args, root_path=root_path, mode=mode, metaInfo=metaInfo)
     torch.save(obj=panns.state_dict(), f=a_p)
     torch.save(obj=clsf.state_dict(), f=c_p)
+
+def pan_freeze(pan:Wavegram_Logmel_Cnn14, batch1d:bool, batch2d:bool) -> None:
+    for component in pan.modules():
+        if isinstance(component, nn.BatchNorm1d) and batch1d:
+            component.eval()
+        elif isinstance(component, nn.BatchNorm2d) and batch2d:
+            component.eval()
