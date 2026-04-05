@@ -79,7 +79,7 @@ if __name__ == '__main__':
         dataset=adpt_set, 
         tfs=[
             Components(transforms=[
-                TimeShift(shift_limit=.07, is_random=True, is_bidirection=False),
+                TimeShift(shift_limit=.17, is_random=True, is_bidirection=False),
                 Resample(orig_freq=args.sample_rate, new_freq=constants.pann_sample_rate),
                 AudioPadding(
                     max_length=constants.pann_sample_rate, sample_rate=constants.pann_sample_rate,
@@ -88,7 +88,7 @@ if __name__ == '__main__':
                 ReduceChannel()
             ]),
             Components(transforms=[
-                TimeShift(shift_limit=-.07, is_random=True, is_bidirection=False),
+                TimeShift(shift_limit=-.17, is_random=True, is_bidirection=False),
                 Resample(orig_freq=args.sample_rate, new_freq=constants.pann_sample_rate),
                 AudioPadding(
                     max_length=constants.pann_sample_rate, sample_rate=constants.pann_sample_rate,
@@ -135,6 +135,7 @@ if __name__ == '__main__':
                 root_path=args.output_path
             )
 
+        if epoch == args.max_epoch: break
         print('Adapting...')
         pan.train(); clsf.train()
         pan_freeze(pan=pan, batch1d=True, batch2d=True)
