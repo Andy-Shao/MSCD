@@ -24,7 +24,7 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--dataset', type=str, default='SpeechCommandsV2', choices=['SpeechCommandsV2'])
     ap.add_argument('--adpt_set_path', type=str)
-    # ap.add_argument('--eval_set_path', type=str)
+    ap.add_argument('--eval_set_path', type=str)
     ap.add_argument('--corruption_type', type=str, choices=['WHN', 'ENQ', 'END1', 'END2', 'ENSC', 'PSH', 'TST'])
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
     ap.add_argument('--num_workers', type=int, default=16)
@@ -72,11 +72,11 @@ if __name__ == '__main__':
         name=f'{constants.architecture_dic[args.arch]}-{constants.dataset_dic[args.dataset]}-{args.corruption_type}-{args.corruption_level}', 
         mode='online' if args.wandb else 'disabled', config=args, tags=['Audio Classification', args.dataset, 'Test-time Adaptation'])
 
-    adpt_set = SpeechCommandsV2C(
+    adpt_cp_set = SpeechCommandsV2C(
         root_path=args.adpt_set_path, corruption_level=args.corruption_level, corruption_type=args.corruption_type,
     )
-    adpt_set = MultiTFDataset(
-        dataset=adpt_set, 
+    adpt_cp_set = MultiTFDataset(
+        dataset=adpt_cp_set, 
         tfs=[
             Components(transforms=[
                 TimeShift(shift_limit=.17, is_random=True, is_bidirection=False),
@@ -98,22 +98,37 @@ if __name__ == '__main__':
             ])
         ]
     )
-    eval_set = SpeechCommandsV2C(
+    adpt_set = SpeechCommandsV2C(
         root_path=args.adpt_set_path, corruption_level=args.corruption_level, corruption_type=args.corruption_type,
         data_tf=Components(transforms=[
             Resample(orig_freq=args.sample_rate, new_freq=constants.pann_sample_rate),
-                AudioPadding(
-                    max_length=constants.pann_sample_rate, sample_rate=constants.pann_sample_rate,
-                    random_shift=False
-                ),
-                ReduceChannel()
+            AudioPadding(
+                max_length=constants.pann_sample_rate, sample_rate=constants.pann_sample_rate,
+                random_shift=False
+            ),
+            ReduceChannel()
         ])
+    )
+    eval_set = SpeechCommandsV2C(
+        root_path=args.eval_set_path, corruption_level=args.corruption_level, corruption_type=args.corruption_type,
+        data_tf=Components(transforms=[
+            Resample(orig_freq=args.sample_rate, new_freq=constants.pann_sample_rate),
+            AudioPadding(
+                max_length=constants.pann_sample_rate, sample_rate=constants.pann_sample_rate,
+                random_shift=False
+            ),
+            ReduceChannel()
+        ])
+    )
+    adpt_cp_loader = DataLoader(
+        dataset=adpt_cp_set, batch_size=args.batch_size, shuffle=True, drop_last=False, 
+        num_workers=args.num_workers
     )
     adpt_loader = DataLoader(
         dataset=adpt_set, batch_size=args.batch_size, shuffle=True, drop_last=False, 
         num_workers=args.num_workers
     )
-    eval_set = DataLoader(
+    eval_loader = DataLoader(
         dataset=eval_set, batch_size=args.batch_size, shuffle=True, drop_last=False, 
         num_workers=args.num_workers
     )
@@ -125,8 +140,12 @@ if __name__ == '__main__':
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         print('Inferencing...')
-        accu = inference(args=args, pan=pan, clsf=clsf, data_loader=eval_set)
-        print(f'Accuracy is: {accu:.4f}, sample size is: {len(adpt_loader)}')
+        print('Adaptation set')
+        accu = inference(args=args, pan=pan, clsf=clsf, data_loader=adpt_loader)
+        print(f'Accuracy is: {accu:.4f}, sample size is: {len(adpt_set)}')
+        print('Evaluation Set')
+        eval_accu = inference(args=args, pan=pan, clsf=clsf, data_loader=eval_loader)
+        print(f'Accuracy is: {eval_accu:.4f}, sample size is: {len(eval_set)}')
         if max_accu <= accu:
             max_accu = accu
             store_weight(
@@ -141,7 +160,7 @@ if __name__ == '__main__':
         pan_freeze(pan=pan, batch1d=True, batch2d=True)
         ttl_size = 0.; ttl_loss = 0.; ttl_nucnm_loss = 0.
         ttl_ent_loss = 0.; ttl_gent_loss = 0.; ttl_const_loss = 0.
-        for fs1, fs2, _ in tqdm(adpt_loader):
+        for fs1, fs2, _ in tqdm(adpt_cp_loader):
             fs1, fs2 = fs1.to(args.device), fs2.to(args.device)
 
             optimizer.zero_grad()
@@ -180,6 +199,7 @@ if __name__ == '__main__':
                 'Adaptation/accuracy': accu,
                 'Adaptation/LR': learning_rate,
                 'Adaptation/max_accu': max_accu,
+                'Evaluation/accuracy': eval_accu,
             }, step=epoch, commit=True
         )
     wandb_run.finish()
