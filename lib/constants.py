@@ -28,6 +28,8 @@ hubert_level_dic = {
     'base': 'B', 'large': 'L', 'x-large': 'XL'
 }
 
+pann_sample_rate = 32000
+
 DYN_WHN_L1 = [6, .5, 7]
 DYN_WHN_L2 = [5, .5, 7]
 DYN_SNR_L1 = [5, .5, 6]
