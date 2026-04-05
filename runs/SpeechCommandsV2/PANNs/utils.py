@@ -6,9 +6,9 @@ from torch.utils.data import DataLoader
 
 from lib.utils import ConfigDict
 from PANNs.models import Wavegram_Logmel_Cnn14
-from PANNs.classifier import DefClassifier
+from PANNs.classifier import PANClassifier
 
-def build_model(args:argparse.Namespace, use_pre_weight:bool=True) -> tuple[Wavegram_Logmel_Cnn14, DefClassifier]:
+def build_model(args:argparse.Namespace, use_pre_weight:bool=True) -> tuple[Wavegram_Logmel_Cnn14, PANClassifier]:
     from huggingface_hub import hf_hub_download
     from safetensors.torch import load_file
 
@@ -33,13 +33,13 @@ def build_model(args:argparse.Namespace, use_pre_weight:bool=True) -> tuple[Wave
     cfg = ConfigDict()
     cfg.class_num = args.class_num
     cfg.embed_num = 2048
-    clsf = DefClassifier(config=cfg)
+    clsf = PANClassifier(config=cfg)
 
     pan, clsf = pan.to(device=args.device), clsf.to(device=args.device)
     return pan, clsf
 
 def inference(
-    args:argparse.Namespace, pan:Wavegram_Logmel_Cnn14, clsf:DefClassifier, data_loader:DataLoader
+    args:argparse.Namespace, pan:Wavegram_Logmel_Cnn14, clsf:PANClassifier, data_loader:DataLoader
 ) -> float:
     pan.eval(); clsf.eval()
     ttl_corr, ttl_size = 0., 0.
