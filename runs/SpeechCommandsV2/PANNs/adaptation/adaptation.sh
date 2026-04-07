@@ -63,5 +63,5 @@ python -m runs.SpeechCommandsV2.PANNs.adaptation.teach_cons --dataset 'SpeechCom
     --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
     --batch_size 32 --corruption_level 'L2' --num_of_shft 3 --fail_coll_lim 3 --max_epoch 2 --lr 1e-4 \
-    --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":1.3, "END2":1.0, "ENSC":1.0, "PSH":1.0, "TST":1.5}' \
+    --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":1.3, "END2":1.3, "ENSC":1.0, "PSH":0.8, "TST":1.5}' \
     --adpt_wght_pth './result/SpeechCommandsV2/PANNs/TTDA'
