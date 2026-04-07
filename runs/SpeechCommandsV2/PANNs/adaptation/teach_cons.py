@@ -130,7 +130,7 @@ if __name__ == '__main__':
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
 
-    ap.add_argument('--lr', type=float, default=1e-3)
+    ap.add_argument('--lrs', type=str)
     ap.add_argument('--lr_cardinality', type=int, default=40)
     ap.add_argument('--lr_gamma', type=int, default=10)
     ap.add_argument('--lr_threshold', type=int, default=1)
@@ -151,6 +151,7 @@ if __name__ == '__main__':
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.arch = 'PANNs'
     args.elect_weights = json.loads(args.elect_weights)
+    args.lrs = json.loads(args.lrs)
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = args.forbid_ls.split(',')
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.TEACHER_CONSENSUS)
@@ -182,7 +183,10 @@ if __name__ == '__main__':
         teach_pan, teach_clsf = build_model(args=args, use_pre_weight=False)
         load_weight(args=args, panns=teach_pan, clsf=teach_clsf, mode='adaptation', metaInfo=cmeta)
         teach_pans.append(teach_pan); teach_clsfs.append(teach_clsf)
-        optimizer = build_optimizer(lr=args.lr, auT=teach_pan, auC=teach_clsf, auT_decay=args.pan_lr_decay, auC_decay=args.clsf_lr_decay)
+        optimizer = build_optimizer(
+            lr=args.lrs[corruption_type], auT=teach_pan, auC=teach_clsf, auT_decay=args.pan_lr_decay, 
+            auC_decay=args.clsf_lr_decay
+        )
         optimizers.append(optimizer)
 
     print("Preparing datasets...")
