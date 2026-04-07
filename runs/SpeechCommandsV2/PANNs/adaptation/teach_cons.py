@@ -205,7 +205,6 @@ if __name__ == '__main__':
             args=args, pans=teach_pans, clsfs=teach_clsfs, data_tfs=data_tfs, corruption_types=corruption_types,
             step=epoch, logger=wandb_run
         )
-        exit()
         if max_pl_accu <= pseudo_accu:
             max_pl_accu = pseudo_accu
             for i, corruption_type in enumerate(corruption_types):
