@@ -21,7 +21,7 @@ from lib.spSet import SpeechCommandsV2C
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
 from lib.adaptation import collect_worst_item
 from ..utils import build_model, teach_inference
-from PANNs.lib.utils import load_weight, store_weight
+from PANNs.lib.utils import load_weight, store_weight, pan_freeze
 
 def pseudo_labeling(
         args:argparse.Namespace, pans:list[nn.Module], clsfs:list[nn.Module], data_tfs:list[nn.Module],
@@ -218,12 +218,14 @@ if __name__ == '__main__':
         )
         if epoch == args.max_epoch: break
         print('Adapting...')
-        for teach_pan in teach_pans: teach_pan.train()
+        for teach_pan in teach_pans: 
+            teach_pan.train()
+            pan_freeze(pan=teach_pan, batch1d=True, batch2d=True)
         for teach_clsf in teach_clsfs: teach_clsf.train()
         for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
             adpt_set = SpeechCommandsV2C(
-                root_path=args.adpt_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types,
-                data_tf=data_tfs
+                root_path=args.adpt_set_path, corruption_level=args.corruption_level, corruption_type=corruption_type,
+                data_tf=data_tfs[0]
             )
             adpt_set = PseudoLabelSet(dataset=adpt_set, pseudo_labels=worst_list[corruption_type], label_position=1)
             adpt_set = Subset(dataset=adpt_set, id_list=list(worst_list[corruption_type].keys()))
@@ -251,7 +253,7 @@ if __name__ == '__main__':
             if epoch % args.interval == 0:
                 lr_scheduler(
                     optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
-                    gamma=args.lr_gammas[corruption_type], threshold=args.lr_threshold, momentum=args.lr_momentum
+                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
                 )
     wandb_run.finish()
     print('END!')
