@@ -179,7 +179,7 @@ if __name__ == '__main__':
     loss_fun = CrossEntropyLabelSmooth(num_classes=args.class_num, use_gpu=torch.cuda.is_available())
     for corruption_type in tqdm(corruption_types):
         cmeta = CorruptionMeta(type=corruption_type, level=args.corruption_level)
-        teach_pan, teach_clsf = build_model(args=args)
+        teach_pan, teach_clsf = build_model(args=args, use_pre_weight=False)
         load_weight(args=args, panns=teach_pan, clsf=teach_clsf, mode='adaptation', metaInfo=cmeta)
         teach_pans.append(teach_pan); teach_clsfs.append(teach_clsf)
         optimizer = build_optimizer(lr=args.lr, auT=teach_pan, auC=teach_clsf, auT_decay=args.pan_lr_decay, auC_decay=args.clsf_lr_decay)
@@ -192,7 +192,7 @@ if __name__ == '__main__':
             max_length=constants.pann_sample_rate, sample_rate=constants.pann_sample_rate, random_shift=False
         ),
         ReduceChannel()
-    ])] * len(corruption_type)
+    ])] * len(corruption_types)
 
     max_pl_accu = 0.
     for epoch in range(args.max_epoch+1):
@@ -201,11 +201,11 @@ if __name__ == '__main__':
             args=args, pans=teach_pans, clsfs=teach_clsfs, corruption_types=corruption_types, data_tfs=data_tfs,
             step=epoch, logger=wandb_run
         )
-        exit()
         output_cache, pred_cache, idx_cache, pseudo_accu = pseudo_labeling(
             args=args, pans=teach_pans, clsfs=teach_clsfs, data_tfs=data_tfs, corruption_types=corruption_types,
             step=epoch, logger=wandb_run
         )
+        exit()
         if max_pl_accu <= pseudo_accu:
             max_pl_accu = pseudo_accu
             for i, corruption_type in enumerate(corruption_types):
