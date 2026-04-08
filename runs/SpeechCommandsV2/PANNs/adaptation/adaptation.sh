@@ -59,11 +59,21 @@ export BASE_PATH=${BASE_PATH:-'/root'}
 #     --orig_wght_pth './result/SpeechCommandsV2/PANNs/train' --wandb
 
 # Teacher Consensus
-python -m runs.SpeechCommandsV2.PANNs.adaptation.teach_cons --dataset 'SpeechCommandsV2' \
+# python -m runs.SpeechCommandsV2.PANNs.adaptation.teach_cons --dataset 'SpeechCommandsV2' \
+#     --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
+#     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
+#     --batch_size 32 --corruption_level 'L2' --num_of_shft 4 --fail_coll_lim 3 --max_epoch 60 \
+#     --lr_cardinality 60  --lr_threshold 15 \
+#     --elect_weights '{"WHN":0.8, "ENQ":0.8, "END1":1.5, "END2":1.5, "ENSC":0.9, "PSH":0.8, "TST":1.5}' \
+#     --lrs '{"WHN":1e-5, "ENQ":1e-5, "END1":1e-6, "END2":1e-6, "ENSC":1e-5, "PSH":1e-4, "TST":1e-5}' \
+#     --adpt_wght_pth './result/SpeechCommandsV2/PANNs/TTDA' --wandb
+
+# Knowledge Distillation
+python -m runs.SpeechCommandsV2.PANNs.adaptation.kd --dataset 'SpeechCommandsV2' \
     --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
-    --batch_size 32 --corruption_level 'L2' --num_of_shft 4 --fail_coll_lim 3 --max_epoch 60 \
-    --lr_cardinality 60  --lr_threshold 15 \
+    --batch_size 32 --corruption_level 'L2' --max_epoch 20 --ctr_rt 0.0 --ctr_dist 'sq_l2' --ctr_T 1.0 \
     --elect_weights '{"WHN":0.8, "ENQ":0.8, "END1":1.5, "END2":1.5, "ENSC":0.9, "PSH":0.8, "TST":1.5}' \
-    --lrs '{"WHN":1e-5, "ENQ":1e-5, "END1":1e-6, "END2":1e-6, "ENSC":1e-5, "PSH":1e-4, "TST":1e-5}' \
-    --adpt_wght_pth './result/SpeechCommandsV2/PANNs/TTDA' --wandb
+    --lr 1e-4 --pseudo_threshold 6.0 \
+    --orig_wght_pth './result/SpeechCommandsV2/PANNs/train' \
+    --adpt_wght_pth './result/SpeechCommandsV2/PANNs/Teach-Cons' --wandb
