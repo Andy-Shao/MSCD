@@ -69,20 +69,20 @@ if __name__ == '__main__':
     print('Analyzing...')
     print('Before Adaptation Analysis...')
     load_weight(args=args, panns=std_pan, clsf=std_clsf, mode='origin')
-    org_glb_roc, org_lcl_rocs = mlt_inference(
+    org_glb_accu, org_lcl_accus = mlt_inference(
         args=args, corruption_types=corruption_types, pan=std_pan, clsf=std_clsf, data_loader=eval_loader
     )
 
     print('After Adaptation Analysis...')
     load_weight(args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION)
-    global_roc, local_rocs = mlt_inference(
+    global_accu, local_accus = mlt_inference(
         args=args, corruption_types=corruption_types, pan=std_pan, clsf=std_clsf, data_loader=eval_loader
     )
-    for corruption_type, local_roc in local_rocs.items():
+    for corruption_type, local_roc in local_accus.items():
         records.loc[len(records)] = [
-            args.arch, param_num, f'{corruption_type}-{args.corruption_level}', org_lcl_rocs[corruption_type],
+            args.arch, param_num, f'{corruption_type}-{args.corruption_level}', org_lcl_accus[corruption_type],
             local_roc
         ]
-    records.loc[len(records)] = [args.arch, param_num, 'Global', org_glb_roc, global_roc]
+    records.loc[len(records)] = [args.arch, param_num, 'Global', org_glb_accu, global_accu]
     records.to_csv(os.path.join(args.output_path, args.output_file))
     print('END!')
