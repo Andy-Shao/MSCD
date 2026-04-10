@@ -4,8 +4,10 @@ import numpy as np
 import random
 import wandb
 from tqdm import tqdm
+from sklearn.metrics import roc_auc_score
 
 import torch 
+from torch import nn
 from torch.utils.data import DataLoader
 from torchaudio.transforms import Resample
 
@@ -100,15 +102,14 @@ if __name__ == '__main__':
         dataset=val_set, batch_size=args.batch_size, shuffle=False, drop_last=False, num_workers=args.num_workers
     )
 
-    max_accu = 0.
+    max_roc_auc = 0.
     for epoch in range(args.max_epoch):
         print(f'Epoch:{epoch+1}/{args.max_epoch}')
         print('Training...')
         pan.train(); clsf.train()
         # pan_freeze(pan=pan, batch1d=True, batch2d=True)
         train_loss = 0.
-        ttl_corr, ttl_size = 0., 0.
-        for features, labels in tqdm(train_loader):
+        for i, (features, labels) in tqdm(enumerate(train_loader), total=len(train_loader)):
             features, labels = features.to(args.device), labels.to(args.device)
 
             optimizer.zero_grad()
@@ -117,12 +118,20 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
-            _, preds = torch.max(outputs.detach(), dim=1)
-            ttl_corr += (preds == labels).sum().cpu().item()
-            ttl_size += labels.shape[0]
+            if i == 0:
+                y_true = [labels.detach().cpu()]
+                y_score = [nn.functional.softmax(outputs.detach().cpu(), dim=1)]
+            else:
+                y_true.append(labels.detach().cpu())
+                y_score.append(nn.functional.softmax(outputs.detach().cpu(), dim=1))
+
             train_loss += loss.detach().cpu().item()
-        train_accu = ttl_corr / ttl_size
-        print(f'Training accuracy is: {train_accu:.4f}, sample size is: {len(train_set)}')
+        train_roc_auc = roc_auc_score(
+            y_true=torch.concat(y_true, dim=0).numpy(), y_score=torch.concat(y_score, dim=0).numpy(), 
+            average='macro', multi_class='ovr'
+        )
+        print(f'Training Mean ROC-AUC is: {train_roc_auc:.4f}, sample size is: {len(train_set)}')
+        y_true = None; y_score = None
 
         learning_rate = optimizer.param_groups[0]['lr']
         if epoch % args.interval == 0:
@@ -132,18 +141,18 @@ if __name__ == '__main__':
             )
         
         print('Validating...')
-        val_accu = inference(args=args, pan=pan, clsf=clsf, data_loader=val_loader)
-        print(f'Validation accuracy is: {val_accu:.4f}, sample size is: {len(val_set)}')
+        val_roc_auc = inference(args=args, pan=pan, clsf=clsf, data_loader=val_loader)
+        print(f'Validation Mean ROC-AUC is: {val_roc_auc:.4f}, sample size is: {len(val_set)}')
 
         wandb_run.log(data={
             'Train/Loss': train_loss / len(train_loader),
-            'Train/Accuracy': train_accu,
+            'Train/ROC-AUC': train_roc_auc,
             'Train/LR': learning_rate,
-            'Val/Accuracy': val_accu
+            'Val/ROC-AUC': val_roc_auc
         }, step=epoch, commit=True)
 
-        if max_accu <= train_accu:
-            max_accu = train_accu
+        if max_roc_auc <= train_roc_auc:
+            max_roc_auc = train_roc_auc
             store_weight(args=args, panns=pan, clsf=clsf, mode='origin', root_path=args.output_path)
     wandb_run.finish()
     print('END!')
