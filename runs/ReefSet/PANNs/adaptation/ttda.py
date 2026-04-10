@@ -148,7 +148,6 @@ if __name__ == '__main__':
         if epoch == args.max_epoch: break
         print('Adapting...')
         pan.train(); clsf.train()
-        # pan_freeze(pan=pan, batch1d=True, batch2d=True)
         ttl_size = 0.; ttl_loss = 0.; ttl_nucnm_loss = 0.
         ttl_ent_loss = 0.; ttl_gent_loss = 0.; ttl_const_loss = 0.
         for fs1, fs2, _ in tqdm(adpt_cp_loader):
