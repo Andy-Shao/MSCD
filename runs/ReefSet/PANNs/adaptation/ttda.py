@@ -18,7 +18,7 @@ from lib.optimizer import build_optimizer, lr_scheduler
 from lib.corruption import CorruptionMeta
 from lib.loss import nucnm, entropy, g_entropy, mse
 from ..utils import build_model, inference
-from PANNs.lib.utils import load_weight, store_weight
+from PANNs.lib.utils import load_weight, store_weight, pan_freeze
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -47,6 +47,7 @@ if __name__ == '__main__':
     ap.add_argument('--wandb', action='store_true')
     ap.add_argument('--seed', type=int, default=2026, help='random seed')
     ap.add_argument('--orig_wght_pth', type=str)
+    ap.add_argument('--freeze_pan', action='store_true')
 
     args = ap.parse_args()
     if args.dataset == 'ReefSet':
@@ -148,6 +149,7 @@ if __name__ == '__main__':
         if epoch == args.max_epoch: break
         print('Adapting...')
         pan.train(); clsf.train()
+        if args.freeze_pan: pan_freeze(pan=pan, batch1d=True, batch2d=True)
         ttl_size = 0.; ttl_loss = 0.; ttl_nucnm_loss = 0.
         ttl_ent_loss = 0.; ttl_gent_loss = 0.; ttl_const_loss = 0.
         for fs1, fs2, _ in tqdm(adpt_cp_loader):
