@@ -1,6 +1,8 @@
 import argparse
 import os
 import pandas as pd
+import numpy as np
+import random
 
 import torch 
 from torch.utils.data import DataLoader
@@ -24,6 +26,7 @@ if __name__ == '__main__':
     ap.add_argument('--std_adpt_wght_pth', type=str)
     ap.add_argument('--orig_wght_pth', type=str)
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
+    ap.add_argument('--seed', type=int, default=2026, help='random seed')
 
     args = ap.parse_args()
     if args.dataset == 'SpeechCommandsV2':
@@ -36,6 +39,11 @@ if __name__ == '__main__':
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.ANALYSIS)
     make_unless_exits(args.output_path)
     torch.backends.cudnn.benchmark = True
+
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
 
     print_argparse(args)
     ##########################################
