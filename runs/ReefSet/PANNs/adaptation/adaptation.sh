@@ -34,5 +34,5 @@ python -m runs.ReefSet.PANNs.adaptation.ttda --dataset 'ReefSet' \
     --adpt_set_path $BASE_PATH'/data/Ada-ReefSet-C' \
     --eval_set_path $BASE_PATH'/data/ReefSet-C' \
     --batch_size 70 --corruption_level 'L2' --corruption_type 'ENSC' --lr 1e-4 --max_epoch 20 \
-    --nucnm_rate 1.0 --ent_rate 0.0 --gent_rate 0.0 --gent_q 20.6 --mse_rate 0.0 --lr_momentum 0.75 \
+    --nucnm_rate 1.0 --ent_rate 0.0 --gent_rate 0.0 --gent_q 20.6 --mse_rate 0.1 --lr_momentum 0.75 \
     --orig_wght_pth './result/ReefSet/PANNs/train' --freeze_pan --wandb
