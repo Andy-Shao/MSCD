@@ -160,7 +160,7 @@ if __name__ == '__main__':
     args.elect_weights = json.loads(args.elect_weights)
     args.lrs = json.loads(args.lrs)
     if not args.forbid_ls.strip():  args.forbid_ls = []
-    else: args.forbid_ls = args.forbid_ls.split(',')
+    else: args.forbid_ls = [k.strip() for k in args.forbid_ls.split(',')]
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.TEACHER_CONSENSUS)
     make_unless_exits(args.output_path)
     torch.backends.cudnn.benchmark = True
