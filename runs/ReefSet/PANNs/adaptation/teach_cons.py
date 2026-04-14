@@ -5,6 +5,8 @@ import numpy as np
 import random
 import wandb
 from tqdm import tqdm
+import copy
+from sklearn.metrics import roc_auc_score
 
 import torch
 from torch import nn
@@ -59,18 +61,22 @@ def pseudo_labeling(
             else: final_preds += preds
             if j == 0: output_cache[corruption_type] = [outputs]
             else: output_cache[corruption_type].append(outputs)
-        _, final_preds = torch.max(final_preds, dim=1)
-        ttl_corr += (final_preds==labels).sum().item()
-        ttl_size += labels.shape[0]
         if j == 0: 
-            pred_cache = [final_preds]
+            pred_cache = [torch.max(final_preds, dim=1)[1]]
             idx_cache = [idxs]
+            y_t = [copy.deepcopy(labels)]
+            y_s = [nn.functional.softmax(final_preds, dim=1)]
         else: 
-            pred_cache.append(final_preds)
+            pred_cache.append(torch.max(final_preds, dim=1)[1])
             idx_cache.append(idxs)
-    pseudo_accu = ttl_corr/ttl_size
-    print(f'Teacher election pseudo-labeling accuracy is: {pseudo_accu:.4f}')
-    logger.log(data={'Adaptation/pseudo-labeling Accuracy': pseudo_accu}, step=step)
+            y_t.append(copy.deepcopy(labels))
+            y_s.append(nn.functional.softmax(final_preds, dim=1))
+    pl_roc_auc = roc_auc_score(
+        y_true=torch.concat(y_t, dim=0).numpy(), y_score=torch.concat(y_s, dim=0).numpy(), average='macro', 
+        multi_class='ovr'
+    )
+    print(f'Teacher election pseudo-labeling ROC-AUC is: {pl_roc_auc:.4f}')
+    logger.log(data={'Adaptation/Pseudo-label ROC-AUC': pl_roc_auc}, step=step)
 
     # Merging output cache
     tmp = {}
@@ -79,7 +85,7 @@ def pseudo_labeling(
     output_cache = tmp
     pred_cache = torch.concat(pred_cache, dim=0)
     idx_cache = torch.concat(idx_cache, dim=0)
-    return output_cache, pred_cache, idx_cache, pseudo_accu
+    return output_cache, pred_cache, idx_cache, pl_roc_auc
 
 def teacher_roc_analyzing(
         args:argparse.Namespace, pans:list[nn.Module], clsfs:list[nn.Module], corruption_types:list[str],
@@ -203,13 +209,13 @@ if __name__ == '__main__':
             args=args, pans=teach_pans, clsfs=teach_clsfs, corruption_types=corruption_types, data_tfs=data_tfs,
             step=epoch, logger=wandb_run
         )
-        output_cache, pred_cache, idx_cache, pseudo_accu = pseudo_labeling(
+        output_cache, pred_cache, idx_cache, pl_roc_auc = pseudo_labeling(
             args=args, pans=teach_pans, clsfs=teach_clsfs, data_tfs=data_tfs, corruption_types=corruption_types,
             step=epoch, logger=wandb_run
         )
         exit()
-        if max_pl_accu <= pseudo_accu:
-            max_pl_accu = pseudo_accu
+        if max_pl_accu <= pl_roc_auc:
+            max_pl_accu = pl_roc_auc
             for i, corruption_type in enumerate(corruption_types):
                 store_weight(
                     args=args, panns=teach_pans[i], clsf=teach_clsfs[i], mode='adaptation', root_path=args.output_path,
