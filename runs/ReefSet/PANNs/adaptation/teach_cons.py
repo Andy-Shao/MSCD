@@ -203,7 +203,7 @@ if __name__ == '__main__':
         ReduceChannel()
     ])] * len(corruption_types)
 
-    max_pl_accu = 0.
+    # max_pl_accu = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_roc_analyzing(
@@ -214,9 +214,9 @@ if __name__ == '__main__':
             args=args, pans=teach_pans, clsfs=teach_clsfs, data_tfs=data_tfs, corruption_types=corruption_types,
             step=epoch, logger=wandb_run
         )
-        if max_pl_accu <= pl_roc_auc:
-            max_pl_accu = pl_roc_auc
-            for i, corruption_type in enumerate(corruption_types):
+        # if max_pl_accu <= pl_roc_auc:
+        #     max_pl_accu = pl_roc_auc
+        for i, corruption_type in enumerate(corruption_types):
                 store_weight(
                     args=args, panns=teach_pans[i], clsf=teach_clsfs[i], mode='adaptation', root_path=args.output_path,
                     metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level)
