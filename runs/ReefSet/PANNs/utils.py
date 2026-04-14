@@ -61,3 +61,31 @@ def inference(
         average='macro', multi_class='ovr'
     )
     return eval_roc_auc
+
+def teach_inference(
+    args:argparse.Namespace, corruption_types:list[str], pans:list[nn.Module], clsfs:list[nn.Module],
+    data_loader:DataLoader
+) -> dict[str, float]:
+    for pan in pans: pan.eval()
+    for clsf in clsfs: clsf.eval()
+    y_ts, y_ss = [], {k:[] for k in corruption_types}
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            corruption_type = corruption_types[i]
+            features = data[i].to(args.device)
+            pan = pans[i]
+            clsf = clsfs[i]
+
+            with torch.inference_mode():
+                outputs = clsf(pan(features)['embedding'])
+                outputs = outputs.detach().cpu()
+            y_ss[corruption_type].append(nn.functional.softmax(outputs, dim=1))
+        y_ts.append(labels.detach())
+    rocs = {}
+    y_t = torch.concat(y_ts, dim=0)
+    for corruption_type in corruption_types:
+        rocs[corruption_type] = roc_auc_score(
+            y_true=y_t.numpy(), y_score=torch.concat(y_ss[corruption_type], dim=0).numpy(), average='macro', multi_class='ovr'
+        )
+    return rocs
