@@ -65,12 +65,12 @@ if __name__ == '__main__':
     param_num = count_ttl_params(model=std_pan) + count_ttl_params(model=std_clsf)
     store_model_structure_to_txt(model=std_pan, output_path=pan_pth)
     store_model_structure_to_txt(model=std_clsf, output_path=clsf_pth)
-    eval_sc2c = ReefSetC(
+    eval_rsc = ReefSetC(
         root_path=args.eval_set_path, corruption_type=corruption_types, corruption_level=args.corruption_level,
         data_tf=data_tfs, label_tf=OneHot2Index()
     )
     eval_loader = DataLoader(
-        dataset=eval_sc2c, batch_size=args.batch_size, shuffle=False, drop_last=False, num_workers=args.num_workers
+        dataset=eval_rsc, batch_size=args.batch_size, shuffle=False, drop_last=False, num_workers=args.num_workers
     )
 
     print('Analyzing...')
