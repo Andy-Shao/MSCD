@@ -1,6 +1,7 @@
 import argparse
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
+import copy
 
 import torch
 from torch import nn
@@ -89,3 +90,33 @@ def teach_inference(
             y_true=y_t.numpy(), y_score=torch.concat(y_ss[corruption_type], dim=0).numpy(), average='macro', multi_class='ovr'
         )
     return rocs
+
+def mlt_inference(
+    args:argparse.Namespace, corruption_types:list[str], pan:nn.Module, clsf:nn.Module, 
+    data_loader:DataLoader
+) -> tuple[float, dict[str, float]]:
+    pan.eval(); clsf.eval()
+    y_ts, y_ss = {k:[] for k in corruption_types}, {k:[] for k in corruption_types}
+    local_roc_aucs = {}
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            corruption_type = corruption_types[i]
+            features = data[i].to(args.device)
+            with torch.inference_mode():
+                outputs = clsf(pan(features)['embedding'])
+                outputs = outputs.detach().cpu()
+            y_ss[corruption_type].append(nn.functional.softmax(outputs.detach().cpu(), dim=1))
+            y_ts[corruption_type].append(copy.deepcopy(labels))
+    for corruption_type in corruption_types:
+        y_s = torch.concat(y_ss[corruption_type], dim=0)
+        y_t = torch.concat(y_ts[corruption_type], dim=0)
+        local_roc_aucs[corruption_type] = roc_auc_score(y_true=y_t.numpy(), y_score=y_s.numpy(), average='macro', multi_class='ovr')
+        y_ss[corruption_type] = y_s
+        y_ts[corruption_type] = y_t
+    y_s = torch.concat([v for k,v in y_ss.items()], dim=0)
+    y_t = torch.concat([v for k,v in y_ts.items()], dim=0)
+    global_roc_auc = roc_auc_score(
+        y_true=y_t.numpy(), y_score=y_s.numpy(), average='macro', multi_class='ovr'
+    )
+    return global_roc_auc, local_roc_aucs
