@@ -22,7 +22,7 @@ from lib.dataset import IdxSet, PseudoLabelSet
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.loss import ContrastiveLoss
 from ..utils import build_model, mlt_inference
-from PANNs.lib.utils import load_weight, store_weight
+from PANNs.lib.utils import load_weight, store_weight, pan_freeze
 
 def student_roc_auc_analyzing(
     args:argparse.Namespace, pan:nn.Module, clsf:nn.Module, corruption_types:list[str],
@@ -238,7 +238,7 @@ if __name__ == '__main__':
         if epoch >= args.max_epoch: break
         print('Adaptating...')
         std_pan.train(); std_clsf.train()
-        # pan_freeze(pan=std_pan, batch1d=True, batch2d=True)
+        pan_freeze(pan=std_pan, batch1d=True, batch2d=True)
         ttl_loss = 0.; ttl_clsf_loss = 0.; ttl_ctr_loss = 0.
         for adpt_data in tqdm(adpt_loader):
             labels = adpt_data[-1].to(args.device)
