@@ -21,5 +21,5 @@ python -m runs.UrbanSound8K.PANNs.adaptation.ttda --dataset 'UrbanSound8K' \
     --adpt_set_path $BASE_PATH'/data/Ada-UrbanSound8K-C' \
     --eval_set_path $BASE_PATH'/data/UrbanSound8K-C' \
     --corruption_type 'PSH' --corruption_level 'L2' --batch_size 70 --max_epoch 30 --lr 1e-4 \
-    --nucnm_rate 1.0 --ent_rate 0.1 --gent_rate 0.0 --gent_q 1.6 --mse_rate 0.0 \
+    --nucnm_rate 1.0 --ent_rate 0.1 --gent_rate 0.0 --gent_q 1.6 --mse_rate 0.1 \
     --orig_wght_pth './result/UrbanSound8K/PANNs/train' --wandb
