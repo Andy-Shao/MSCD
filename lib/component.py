@@ -150,3 +150,10 @@ class OneHot2Index(nn.Module):
     def forward(self, x:torch.Tensor) -> int:
         _, pred = torch.max(x, dim=0)
         return pred.item()
+
+class Stereo2Mono(nn.Module):
+    def __init__(self):
+        super(Stereo2Mono, self).__init__()
+
+    def forward(self, wavform:torch.Tensor) -> torch.Tensor:
+        return wavform.mean(dim=0, keepdim=True)
