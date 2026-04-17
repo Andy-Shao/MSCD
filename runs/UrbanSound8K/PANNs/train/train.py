@@ -90,7 +90,7 @@ if __name__ == '__main__':
         data_tf=Components(transforms=[
             Stereo2Mono(),
             AudioPadding(max_length=args.audio_length, sample_rate=args.sample_rate, random_shift=False),
-            AudioClip(max_length=args.audio_length, mode='head', is_random=False),
+            AudioClip(max_length=args.audio_length, mode='head', is_random=True),
             ReduceChannel()
         ])
     )
