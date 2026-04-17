@@ -184,6 +184,6 @@ if __name__ == '__main__':
             'Adaptation/LR': learning_rate,
             'Adaptation/Max F1 score': max_f1,
             'Evaluation/F1 score': eval_f1,
-        }, step=args.max_epoch, commit=True
+        }, step=epoch, commit=True
     )
     wandb_run.finish()
