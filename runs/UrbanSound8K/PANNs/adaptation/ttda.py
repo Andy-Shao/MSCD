@@ -174,16 +174,16 @@ if __name__ == '__main__':
                 threshold=args.lr_threshold, momentum=args.lr_momentum
             )
         wandb_run.log(
-        data={
-            'Loss/ttl_loss': ttl_loss / ttl_size,
-            'Loss/Nuclear-norm loss': ttl_nucnm_loss / ttl_size,
-            'Loss/Entropy loss': ttl_ent_loss / ttl_size,
-            'Loss/G-entropy loss': ttl_gent_loss / ttl_size,
-            'Loss/Consistency loss': ttl_const_loss / ttl_size,
-            'Adaptation/F1 score': adpt_f1,
-            'Adaptation/LR': learning_rate,
-            'Adaptation/Max F1 score': max_f1,
-            'Evaluation/F1 score': eval_f1,
-        }, step=epoch, commit=True
-    )
+            data={
+                'Loss/ttl_loss': ttl_loss / ttl_size,
+                'Loss/Nuclear-norm loss': ttl_nucnm_loss / ttl_size,
+                'Loss/Entropy loss': ttl_ent_loss / ttl_size,
+                'Loss/G-entropy loss': ttl_gent_loss / ttl_size,
+                'Loss/Consistency loss': ttl_const_loss / ttl_size,
+                'Adaptation/F1 score': adpt_f1,
+                'Adaptation/LR': learning_rate,
+                'Adaptation/Max F1 score': max_f1,
+                'Evaluation/F1 score': eval_f1,
+            }, step=epoch, commit=True
+        )
     wandb_run.finish()
