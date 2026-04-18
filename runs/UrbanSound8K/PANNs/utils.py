@@ -4,6 +4,7 @@ import copy
 from sklearn.metrics import f1_score
 
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
 
 from lib.utils import ConfigDict
@@ -59,3 +60,30 @@ def inference(args:argparse.Namespace, pan:Wavegram_Logmel_Cnn14, clsf:PANClassi
         y_true=torch.concat(y_trues, dim=0).numpy(), y_pred=torch.concat(y_preds, dim=0).numpy(), 
         average='macro'
     )
+
+def teach_inference(
+    args:argparse.Namespace, corruption_types:list[str], pans:list[nn.Module], clsfs:list[nn.Module],
+    data_loader:DataLoader
+) -> dict[str, float]:
+    for pan in pans: pan.eval()
+    for clsf in clsfs: clsf.eval()
+    y_trues, y_preds = [], {k:[] for k in corruption_types}
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            corruption_type = corruption_types[i]
+            features = data[i].to(args.device)
+            pan = pans[i]
+            clsf = clsfs[i]
+            with torch.inference_mode():
+                outputs = clsf(pan(features)['embedding'])
+                outputs = outputs.detach().cpu()
+            _, preds = torch.max(outputs, dim=1)
+            y_preds[corruption_type].append(preds)
+        y_trues.append(labels)
+    y_trues = torch.concat(y_trues, dim=0)
+    f1s = {}
+    for corruption_type in corruption_types:
+        y_pred = torch.concat(y_preds[corruption_type], dim=0)
+        f1s[corruption_type] = f1_score(y_true=y_trues.numpy(), y_pred=y_pred.numpy(), average='macro')
+    return f1s
