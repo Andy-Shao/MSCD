@@ -22,7 +22,7 @@ from lib.enSet import UrbanSound8KC
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
 from lib.adaptation import collect_worst_item
 from ..utils import build_model, teach_inference
-from PANNs.lib.utils import load_weight, store_weight
+from PANNs.lib.utils import load_weight, store_weight, pan_freeze
 
 def pseudo_labeling(
         args:argparse.Namespace, pans:list[nn.Module], clsfs:list[nn.Module], data_tfs:list[nn.Module],
@@ -226,7 +226,7 @@ if __name__ == '__main__':
         print('Adapting...')
         for teach_pan in teach_pans: 
             teach_pan.train()
-            # pan_freeze(pan=teach_pan, batch1d=True, batch2d=True)
+            pan_freeze(pan=teach_pan, batch1d=True, batch2d=True)
         for teach_clsf in teach_clsfs: teach_clsf.train()
         for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
             adpt_set = UrbanSound8KC(
