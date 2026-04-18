@@ -103,14 +103,14 @@ if __name__ == '__main__':
     adpt_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf, mode='embedding')
     records.loc[len(records)] = [args.arch, 'embedding', org_scr, adpt_scr, (adpt_scr - org_scr)/abs(org_scr)]
 
-    print('Logits Analyzing...')
-    print('Before Adaptation Analysis...')
-    load_weight(args=args, panns=std_pan, clsf=std_clsf, mode='origin')
-    org_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf, mode='logits')
+    # print('Logits Analyzing...')
+    # print('Before Adaptation Analysis...')
+    # load_weight(args=args, panns=std_pan, clsf=std_clsf, mode='origin')
+    # org_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf, mode='logits')
 
-    print('After Adaptation Analysis...')
-    load_weight(args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION)
-    adpt_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf, mode='logits')
-    records.loc[len(records)] = [args.arch, 'logits', org_scr, adpt_scr, (adpt_scr - org_scr)/abs(org_scr)]
-    records.to_csv(os.path.join(args.output_path, args.output_file))
+    # print('After Adaptation Analysis...')
+    # load_weight(args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION)
+    # adpt_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf, mode='logits')
+    # records.loc[len(records)] = [args.arch, 'logits', org_scr, adpt_scr, (adpt_scr - org_scr)/abs(org_scr)]
+    # records.to_csv(os.path.join(args.output_path, args.output_file))
     print('END!')
