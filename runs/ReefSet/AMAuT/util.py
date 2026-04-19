@@ -3,6 +3,7 @@ from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
 import os
 import copy
+from typing import Literal
 
 import torch
 from torch import nn
@@ -105,7 +106,7 @@ def __cal_model_path__(args:argparse.Namespace, mode='origin', metaInfo:Corrupti
     return a_p, c_p
 
 def load_weight(
-    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, mode='origin', metaInfo:CorruptionMeta=None,
+    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, mode:Literal['origin', 'adaptation', 'KD']='origin', metaInfo:CorruptionMeta=None,
     root_path:str=None
 ) -> None:
     a_p, c_p = __cal_model_path__(args=args, mode=mode, metaInfo=metaInfo, root_path=root_path)
@@ -113,7 +114,7 @@ def load_weight(
     clsf.load_state_dict(state_dict=torch.load(c_p, weights_only=True))
 
 def store_weight(
-    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, mode='origin', metaInfo:CorruptionMeta=None,
+    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, mode:Literal['origin', 'adaptation', 'KD']='origin', metaInfo:CorruptionMeta=None,
     root_path:str=None
 ) -> None:
     a_p, c_p = __cal_model_path__(args=args, root_path=root_path, mode=mode, metaInfo=metaInfo)
