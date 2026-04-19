@@ -1,0 +1,114 @@
+import argparse
+import os
+import numpy as np
+import random
+import pandas as pd
+from tqdm import tqdm
+from sklearn.metrics import silhouette_score
+
+import torch 
+from torch import nn
+from torch.utils.data import DataLoader
+from torchaudio.transforms import MelSpectrogram
+
+from lib import constants
+from lib.utils import make_unless_exits, print_argparse
+from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
+from lib.spSet import SpeechCommandsV2C
+from ..utils import build_model, load_weight
+
+def silhouette_inference(
+        args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, data_loader:DataLoader
+    ) -> float:
+    aut.eval(); clsf.eval()
+    ttl_output, ttl_label = [], []
+    for data in tqdm(data_loader):
+        labels = data[-1].detach()
+        for i in range(len(data)-1):
+            features = data[i].to(args.device)
+            with torch.inference_mode():
+                outputs, _ = aut(features)
+                outputs = outputs.detach().cpu()
+            outputs = torch.mean(outputs, dim=1)
+            outputs = nn.functional.normalize(outputs, p=2, dim=1)
+            ttl_output.append(outputs)
+            ttl_label.append(labels)
+    ttl_output = torch.concat(ttl_output, dim=0)
+    ttl_label = torch.concat(ttl_label, dim=0)
+    return silhouette_score(X=ttl_output.numpy(), labels=ttl_label.numpy(), metric='euclidean')
+
+if __name__ == '__main__':
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--dataset', type=str, default='SpeechCommandsV2', choices=['SpeechCommandsV2'])
+    ap.add_argument('--eval_set_path', type=str)
+    ap.add_argument('--num_workers', type=int, default=16)
+    ap.add_argument('--output_path', type=str, default='./result')
+    ap.add_argument('--output_file', type=str, default='result.csv')
+    ap.add_argument('--batch_size', type=int, default=64)
+    ap.add_argument('--orig_wght_pth', type=str)
+    ap.add_argument('--std_adpt_wght_pth', type=str)
+    ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
+
+    ap.add_argument('--wandb', action='store_true')
+    ap.add_argument('--seed', type=int, default=2026, help='random seed')
+
+    args = ap.parse_args()
+    if args.dataset == 'SpeechCommandsV2':
+        args.class_num = 35
+        args.sample_rate = 16000
+    else:
+        raise Exception('No support!')
+    args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    args.arch = 'AMAuT'
+    args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.ANALYSIS)
+    make_unless_exits(args.output_path)
+    torch.backends.cudnn.benchmark = True
+
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
+
+    print_argparse(args)
+    ##########################################
+    corruption_types=['WHN', 'ENQ', 'END1', 'END2', 'ENSC', 'PSH', 'TST']
+    args.n_mels=80
+    n_fft=1024
+    win_length=400
+    hop_length=155
+    mel_scale='slaney'
+    args.target_length=104
+    records = pd.DataFrame(columns=['Model', 'Type', 'Befor Adaptation', 'After Adaptation', 'Relative Improvement'])
+
+    print("Initialization...")
+    data_tfs = [Components(transforms=[
+        MelSpectrogram(
+            sample_rate=args.sample_rate, n_fft=n_fft, win_length=win_length, hop_length=hop_length,
+            n_mels=args.n_mels, mel_scale=mel_scale
+        ),
+        AmplitudeToDB(top_db=80., max_out=2.),
+        FrequenceTokenTransformer(),
+    ])] * len(corruption_types)
+    std_aut, std_clsf = build_model(args=args)
+    eval_set = SpeechCommandsV2C(
+        root_path=args.eval_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types, 
+        data_tf=data_tfs
+    )
+    eval_loader = DataLoader(
+        dataset=eval_set, batch_size=args.batch_size, shuffle=False, drop_last=False, 
+        num_workers=args.num_workers
+    )
+
+    print('Embedding Analyzing...')
+    print('Before Adaptation Analysis...')
+    load_weight(args=args, aut=std_aut, clsf=std_clsf, mode='origin')
+    org_scr = silhouette_inference(args=args, aut=std_aut, clsf=std_clsf, data_loader=eval_loader)
+
+    print('After Adaptation Analysis...')
+    load_weight(args=args, aut=std_aut, clsf=std_clsf, mode='KD')
+    adpt_scr = silhouette_inference(args=args, aut=std_aut, clsf=std_clsf, data_loader=eval_loader)
+
+    records.loc[len(records)] = [args.arch, 'embedding', org_scr, adpt_scr, (adpt_scr - org_scr)/abs(org_scr)]
+
+    records.to_csv(os.path.join(args.output_path, args.output_file))
+    print('END!')
