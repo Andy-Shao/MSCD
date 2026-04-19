@@ -24,7 +24,7 @@ def silhouette_inference(
         args:argparse.Namespace, pan:nn.Module, clsf:nn.Module, data_loader:DataLoader, 
         mode:Literal['logits', 'embedding']
     ) -> float:
-    pan.eval()
+    pan.eval(); clsf.eval()
     ttl_output, ttl_label = [], []
     for data in tqdm(data_loader):
         labels = data[-1]

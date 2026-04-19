@@ -59,7 +59,7 @@ if __name__ == '__main__':
     records = pd.DataFrame(columns=['Model', 'Num of Params', 'Corruption', 'Befor Adaptation', 'After Adaptation'])
 
     print("Initialization...")
-    std_hub, std_clsf = build_model(args=args)
+    std_hub, std_clsf = build_model(args=args, pre_weight=False)
     aut_pth, clsf_pth = __cal_model_path__(args=args, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path)
     aut_pth = aut_pth.replace('.pt', '.txt')
     clsf_pth = clsf_pth.replace('.pt', '.txt')
