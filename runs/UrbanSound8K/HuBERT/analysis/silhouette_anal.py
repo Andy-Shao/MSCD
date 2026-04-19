@@ -1,19 +1,40 @@
 import argparse
+import os
 import numpy as np
 import random
-import os
+from tqdm import tqdm
+from sklearn.metrics import silhouette_score
 import pandas as pd
 
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
 from torchaudio.transforms import Resample
 
 from lib import constants
-from lib.utils import make_unless_exits, print_argparse, count_ttl_params, store_model_structure_to_txt
+from lib.utils import make_unless_exits, print_argparse
 from lib.component import Components, AudioClip, ReduceChannel
 from lib.enSet import UrbanSound8KC
-from ..utils import build_model, mlt_inference
-from HuBERT.lib.utils import load_weight, __cal_model_path__
+from ..utils import build_model
+from HuBERT.lib.utils import load_weight
+
+def silhouette_inference(args:argparse.Namespace, hub:nn.Module, clsf:nn.Module, data_loader:DataLoader) -> float:
+    hub.eval(); clsf.eval()
+    ttl_output, ttl_label = [], []
+    for data in tqdm(data_loader):
+        labels = data[-1].detach()
+        for i in range(len(data)-1):
+            features = data[i].to(args.device)
+            with torch.inference_mode():
+                outputs = hub(features)[0]
+                outputs = outputs.detach().cpu()
+            outputs = torch.mean(outputs, dim=1)
+            outputs = nn.functional.normalize(outputs, p=2, dim=1)
+            ttl_output.append(outputs)
+            ttl_label.append(labels)
+    ttl_output = torch.concat(ttl_output, dim=0)
+    ttl_label = torch.concat(ttl_label, dim=0)
+    return silhouette_score(X=ttl_output.numpy(), labels=ttl_label.numpy(), metric='euclidean')
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -59,16 +80,10 @@ if __name__ == '__main__':
         AudioClip(max_length=args.audio_length, mode='head', is_random=False),
         ReduceChannel(),
     ])] * len(corruption_types)
-    records = pd.DataFrame(columns=['Model', 'Num of Params', 'Corruption', 'Befor Adaptation', 'After Adaptation'])
+    records = pd.DataFrame(columns=['Model', 'Type', 'Befor Adaptation', 'After Adaptation', 'Relative Improvement'])
 
     print("Initialization...")
     std_hub, std_clsf = build_model(args=args, pre_weight=False)
-    aut_pth, clsf_pth = __cal_model_path__(args=args, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path)
-    aut_pth = aut_pth.replace('.pt', '.txt')
-    clsf_pth = clsf_pth.replace('.pt', '.txt')
-    param_num = count_ttl_params(model=std_hub) + count_ttl_params(model=std_clsf)
-    store_model_structure_to_txt(model=std_hub, output_path=aut_pth)
-    store_model_structure_to_txt(model=std_clsf, output_path=clsf_pth)
     eval_us8 = UrbanSound8KC(
         root_path=args.eval_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types,
         data_tf=data_tfs
@@ -77,24 +92,15 @@ if __name__ == '__main__':
         dataset=eval_us8, batch_size=args.batch_size, shuffle=False, drop_last=False, num_workers=args.num_workers
     )
 
-    print('Analyzing...')
+    print('Embedding Analyzing...')
     print('Before Adaptation Analysis...')
     load_weight(args=args, hubert=std_hub, clsf=std_clsf, mode='origin')
-    adpt_gl_f1, adpt_lcl_f1s = mlt_inference(
-        args=args, corruption_types=corruption_types, hub=std_hub, clsf=std_clsf, data_loader=eval_loader
-    )
+    org_scr = silhouette_inference(args=args, hub=std_hub, clsf=std_clsf, data_loader=eval_loader)
 
     print('After Adaptation Analysis...')
-    load_weight(args=args, hubert=std_hub, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION)
-    global_f1, local_f1s = mlt_inference(
-        args=args, corruption_types=corruption_types, hub=std_hub, clsf=std_clsf, data_loader=eval_loader
-    )
+    load_weight(args=args, hubert=std_hub, clsf=std_clsf, mode='KD')
+    adpt_scr = silhouette_inference(args=args, hub=std_hub, clsf=std_clsf, data_loader=eval_loader)
 
-    for corruption_type, local_f1 in local_f1s.items():
-        records.loc[len(records)] = [
-            args.arch, param_num, f'{corruption_type}-{args.corruption_level}', adpt_lcl_f1s[corruption_type],
-            local_f1
-        ]
-    records.loc[len(records)] = [args.arch, param_num, 'Global', adpt_gl_f1, global_f1]
+    records.loc[len(records)] = [args.arch, 'embedding', org_scr, adpt_scr, (adpt_scr - org_scr)/abs(org_scr)]
     records.to_csv(os.path.join(args.output_path, args.output_file))
     print('END!')
