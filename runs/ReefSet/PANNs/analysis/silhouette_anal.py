@@ -20,10 +20,7 @@ from lib.acousSet import ReefSetC
 from ..utils import build_model
 from PANNs.lib.utils import load_weight
 
-def silhouette_inference(
-        args:argparse.Namespace, pan:nn.Module, clsf:nn.Module, data_loader:DataLoader, 
-        mode:Literal['logits', 'embedding']
-    ) -> float:
+def silhouette_inference(args:argparse.Namespace, pan:nn.Module, clsf:nn.Module, data_loader:DataLoader) -> float:
     pan.eval(); clsf.eval()
     ttl_output, ttl_label = [], []
     for data in tqdm(data_loader):
@@ -32,8 +29,8 @@ def silhouette_inference(
             features = data[i].to(args.device)
             with torch.inference_mode():
                 outputs = pan(features)['embedding']
-                if mode == 'logits': outputs = clsf(outputs)
                 outputs = outputs.detach().cpu()
+            outputs = nn.functional.normalize(outputs, p=2, dim=1)
             ttl_output.append(outputs)
             ttl_label.append(copy.deepcopy(labels))
     ttl_output = torch.concat(ttl_output, dim=0)
@@ -95,21 +92,12 @@ if __name__ == '__main__':
     print('Embedding Analyzing...')
     print('Before Adaptation Analysis...')
     load_weight(args=args, panns=std_pan, clsf=std_clsf, mode='origin')
-    org_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf, mode='embedding')
+    org_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf)
 
     print('After Adaptation Analysis...')
     load_weight(args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION)
-    adpt_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf, mode='embedding')
+    adpt_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf)
+
     records.loc[len(records)] = [args.arch, 'embedding', org_scr, adpt_scr, (adpt_scr - org_scr)/abs(org_scr)]
-
-    # print('Logits Analyzing...')
-    # print('Before Adaptation Analysis...')
-    # load_weight(args=args, panns=std_pan, clsf=std_clsf, mode='origin')
-    # org_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf, mode='logits')
-
-    # print('After Adaptation Analysis...')
-    # load_weight(args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION)
-    # adpt_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf, mode='logits')
-    # records.loc[len(records)] = [args.arch, 'logits', org_scr, adpt_scr, (adpt_scr - org_scr)/abs(org_scr)]
     records.to_csv(os.path.join(args.output_path, args.output_file))
     print('END!')
