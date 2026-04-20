@@ -1,6 +1,7 @@
 import argparse
 import os
 from tqdm import tqdm
+from typing import Literal
 
 import torch
 from torch import nn
@@ -68,7 +69,10 @@ def teach_inference(
         accus[corruption_type] = ttl_corrs[corruption_type]/ttl_sizes[corruption_type]
     return accus
 
-def __cal_model_path__(args:argparse.Namespace, mode='origin', metaInfo:CorruptionMeta=None, root_path:str=None) -> tuple[str, str]:
+def __cal_model_path__(
+    args:argparse.Namespace, mode:Literal['origin', 'adaptation', 'KD']='origin', metaInfo:CorruptionMeta=None, 
+    root_path:str=None
+) -> tuple[str, str]:
     assert mode in ['origin', 'adaptation', constants.STUDENT_ADAPTATION], 'No support'
     if mode == 'origin':
         if root_path is None: root_path = args.orig_wght_pth
@@ -85,16 +89,16 @@ def __cal_model_path__(args:argparse.Namespace, mode='origin', metaInfo:Corrupti
     return a_p, c_p
 
 def load_weight(
-    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, mode='origin', metaInfo:CorruptionMeta=None,
-    root_path:str=None
+    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, mode:Literal['origin', 'adaptation', 'KD']='origin', 
+    metaInfo:CorruptionMeta=None, root_path:str=None
 ) -> None:
     a_p, c_p = __cal_model_path__(args=args, mode=mode, metaInfo=metaInfo, root_path=root_path)
     aut.load_state_dict(state_dict=torch.load(a_p, weights_only=True))
     clsf.load_state_dict(state_dict=torch.load(c_p, weights_only=True))
 
 def store_weight(
-    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, mode='origin', metaInfo:CorruptionMeta=None,
-    root_path:str=None
+    args:argparse.Namespace, aut:nn.Module, clsf:nn.Module, mode:Literal['origin', 'adaptation', 'KD']='origin', 
+    metaInfo:CorruptionMeta=None, root_path:str=None
 ) -> None:
     a_p, c_p = __cal_model_path__(args=args, root_path=root_path, mode=mode, metaInfo=metaInfo)
     torch.save(obj=aut.state_dict(), f=a_p)
