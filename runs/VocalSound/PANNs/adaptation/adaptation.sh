@@ -56,6 +56,6 @@ export BASE_PATH=${BASE_PATH:-'/root'}
 python -m runs.VocalSound.PANNs.adaptation.teach_cons --dataset 'VocalSound' \
     --adpt_set_path $BASE_PATH'/data/Ada-VocalSound-C' \
     --eval_set_path $BASE_PATH'/data/VocalSound-C' \
-    --corruption_level 'L2' --batch_size 32 --max_epoch 20 --lr 1e-5 --num_of_shft 2 --fail_coll_lim 5 \
+    --corruption_level 'L2' --batch_size 32 --max_epoch 20 --lr 1e-5 --num_of_shft 2 --fail_coll_lim 3 \
     --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":3.0, "END2":2.5, "ENSC":1.0, "PSH":1.0, "TST":0.8}' \
     --adpt_wght_pth './result/VocalSound/PANNs/TTDA' --wandb
