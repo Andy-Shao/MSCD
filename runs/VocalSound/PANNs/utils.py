@@ -2,6 +2,7 @@ import argparse
 from tqdm import tqdm
 
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
 
 from lib.utils import ConfigDict
@@ -53,3 +54,27 @@ def inference(
         ttl_corr += (preds == labels).sum().item()
         ttl_size += labels.shape[0]
     return ttl_corr / ttl_size
+
+def teach_inference(
+    args:argparse.Namespace, corruption_types:list[str], pans:list[nn.Module], clsfs:list[nn.Module],
+    data_loader:DataLoader
+) -> dict[str, float]:
+    for pan in pans: pan.eval()
+    for clsf in clsfs: clsf.eval()
+    ttl_corrs, ttl_sizes = {it: 0. for it in corruption_types}, {it: 0. for it in corruption_types}
+    for data in tqdm(data_loader):
+        labels = data[-1]
+        for i in range(len(data)-1):
+            corruption_type = corruption_types[i]
+            features = data[i].to(args.device)
+            pan = pans[i]
+            clsf = clsfs[i]
+
+            with torch.inference_mode():
+                outputs = clsf(pan(features)['embedding'])
+                outputs = outputs.detach().cpu()
+            _, preds = torch.max(outputs, dim=1)
+            ttl_corrs[corruption_type] += (preds==labels).sum().item()
+            ttl_sizes[corruption_type] += labels.shape[0]
+    accus = {k:ttl_corrs[k]/ttl_sizes[k] for k in corruption_types}
+    return accus
