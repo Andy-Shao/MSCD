@@ -6,6 +6,15 @@ from torch import nn
 
 from HuBERT.lib.model import HuBClassifier
 
+def is_stored(max_val:float, curr_val:float, max_mode:bool) -> tuple[float, bool]:
+    if max_val <= curr_val:
+        max_val = curr_val
+        new_max_val = True
+    else: new_max_val = False
+    if max_mode:
+        return max_val, new_max_val
+    else: return max_val, True
+
 def hub_clsf_freeze(model:HuBClassifier):
     for component in model.modules():
         if isinstance(component, nn.BatchNorm1d):
