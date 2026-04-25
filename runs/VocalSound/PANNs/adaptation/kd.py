@@ -21,7 +21,7 @@ from lib.optimizer import build_optimizer, lr_scheduler
 from lib.loss import ContrastiveLoss
 from lib.adaptation import is_stored
 from ..utils import build_model, mlt_inference
-from PANNs.lib.utils import load_weight, store_weight
+from PANNs.lib.utils import load_weight, store_weight, pan_freeze
 
 def student_accu_analyzing(
     args:argparse.Namespace, pan:nn.Module, clsf:nn.Module, corruption_types:list[str],
@@ -227,10 +227,11 @@ if __name__ == '__main__':
         if epoch >= args.max_epoch: break
         print('Adaptating...')
         std_pan.train(); std_clsf.train()
-        # pan_freeze(pan=std_pan, batch1d=True, batch2d=True)
+        pan_freeze(pan=std_pan, batch1d=True, batch2d=True)
         ttl_loss = 0.; ttl_clsf_loss = 0.; ttl_ctr_loss = 0.
         for adpt_data in tqdm(adpt_loader):
             labels = adpt_data[-1].to(args.device)
+            optimizer.zero_grad()
             for i in range(len(adpt_data)-1):
                 features = adpt_data[i].to(args.device)
                 outputs = std_clsf(std_pan(features)['embedding'])
@@ -244,18 +245,14 @@ if __name__ == '__main__':
                     ctr_loss = args.ctr_rt * ctr_loss_fun(outputs, labels)
                 else: ctr_loss = torch.tensor(0.).to(device=args.device)
 
-                if i == 0:
-                    loss = clsf_loss + ctr_loss
-                else: 
-                    loss += clsf_loss + ctr_loss
+                loss = (clsf_loss + ctr_loss) / (len(adpt_data)-1)
+                loss.backward()
+                ttl_loss += loss.detach().cpu().item()
                 ttl_clsf_loss += clsf_loss.detach().cpu().item()
                 ttl_ctr_loss += ctr_loss.detach().cpu().item()
-            optimizer.zero_grad()
-            loss.backward()
             optimizer.step()
-            ttl_loss += loss.detach().cpu().item()
         wandb_run.log(data={
-            'Loss/TTL Loss': ttl_loss/(len(adpt_loader)*len(corruption_types)),
+            'Loss/TTL Loss': ttl_loss/(len(adpt_loader)),
             'Loss/Classification loss': ttl_clsf_loss/(len(adpt_loader)*len(corruption_types)),
             'Loss/Contrastive loss': ttl_ctr_loss/(len(adpt_loader)*len(corruption_types)),
         }, step=epoch)
