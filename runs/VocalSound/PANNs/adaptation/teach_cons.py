@@ -206,8 +206,8 @@ if __name__ == '__main__':
             args=args, pans=teach_pans, clsfs=teach_clsfs, data_tfs=data_tfs, corruption_types=corruption_types,
             step=epoch, logger=wandb_run
         )
-        max_pl_accu, store_tag = is_stored(max_val=max_pl_accu, curr_val=pseudo_accu, max_mode=args.max_mode)
-        if store_tag:
+        max_pl_accu, store_flag = is_stored(max_val=max_pl_accu, curr_val=pseudo_accu, max_mode=args.max_mode)
+        if store_flag:
             for i, corruption_type in enumerate(corruption_types):
                 store_weight(
                     args=args, panns=teach_pans[i], clsf=teach_clsfs[i], mode='adaptation', root_path=args.output_path,
