@@ -17,6 +17,7 @@ from lib.dataset import MultiTFDataset
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.corruption import CorruptionMeta
 from lib.loss import nucnm, mse, entropy, g_entropy
+from lib.adaptation import is_stored
 from ..utils import build_model, inference
 from PANNs.lib.utils import load_weight, store_weight, pan_freeze
 
@@ -48,6 +49,7 @@ if __name__ == '__main__':
     ap.add_argument('--seed', type=int, default=2026, help='random seed')
     ap.add_argument('--orig_wght_pth', type=str)
     ap.add_argument('--freeze_pan', action='store_true')
+    ap.add_argument('--max_mode', action='store_true')
 
     args = ap.parse_args()
     if args.dataset == 'VocalSound':
@@ -128,8 +130,8 @@ if __name__ == '__main__':
         print('Evaluation Set')
         eval_accu = inference(args=args, pan=pan, clsf=clsf, data_loader=eval_loader)
         print(f'Accuracy is: {eval_accu:.4f}, sample size is: {len(eval_set)}')
-        if max_accu <= accu:
-            max_accu = accu
+        max_accu, store_flag = is_stored(max_val=max_accu, curr_val=accu, max_mode=args.max_mode)
+        if store_flag:
             store_weight(
                 args=args, panns=pan, clsf=clsf, mode='adaptation', root_path=args.output_path, 
                 metaInfo=CorruptionMeta(type=args.corruption_type, level=args.corruption_level)
