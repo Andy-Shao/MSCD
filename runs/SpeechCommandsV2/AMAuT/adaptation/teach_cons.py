@@ -13,7 +13,7 @@ from torchaudio.transforms import MelSpectrogram
 
 from lib import constants
 from lib.utils import make_unless_exits, print_argparse
-from lib.adaptation import collect_worst_item, is_frozen
+from lib.adaptation import collect_worst_item, is_frozen, is_stored
 from lib.dataset import IdxSet, Subset, PseudoLabelSet
 from lib.spSet import SpeechCommandsV2C
 from lib.corruption import CorruptionMeta
@@ -117,13 +117,12 @@ if __name__ == '__main__':
     ap.add_argument('--adpt_wght_pth', type=str)
     ap.add_argument('--corruption_level', type=str, choices=['L1', 'L2'])
     ap.add_argument('--elect_weights', type=str)
-    ap.add_argument('--rewgt_pos', type=int, default=10)
     ap.add_argument('--num_of_shft', type=int, default=3, help='maximum number of shifting teachers')
     ap.add_argument('--fail_coll_lim', type=int, default=3, help='maximum number of fail prediction be choosed in worst list')
     ap.add_argument('--max_epoch', type=int, default=20)
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
-    ap.add_argument('--str_pos', type=int, default=10)
+    ap.add_argument('--max_mode', action='store_true')
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -207,6 +206,7 @@ if __name__ == '__main__':
         num_workers=args.num_workers
     )
 
+    max_pseudo_accu = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_accu_analyzing(
@@ -217,8 +217,8 @@ if __name__ == '__main__':
             args=args, auts=auts, clsfs=clsfs, data_loader=sc2_c_loader, corruption_types=corruption_types,
             step=epoch, logger=wandb_run
         )
-        if max_pseudo_accu <= pseudo_accu and epoch >= args.str_pos:
-            max_pseudo_accu = pseudo_accu
+        max_pseudo_accu, store_flag = is_stored(max_val=max_pseudo_accu, curr_val=pseudo_accu, max_mode=args.max_mode)
+        if store_flag:
             for i, corruption_type in enumerate(corruption_types):
                 aut, clsf = auts[i], clsfs[i]
                 store_weight(
@@ -280,15 +280,6 @@ if __name__ == '__main__':
                     optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
                     gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
                 )
-            if args.rewgt_pos == epoch and args.corruption_level == 'L2':
-                elect_weights = {}
-                for k, wgt in args.elect_weights.items():
-                    if k in ['END1', 'END2', 'WHN', 'ENQ'] and wgt < 2.:
-                        elect_weights[k] = 2.
-                    elif k in ['PSH', 'ENSC'] and wgt < 1.5:
-                        elect_weights[k] = 1.5
-                    else: elect_weights[k] = wgt
-                args.elect_weights = elect_weights
 
     wandb_run.finish()
     print('END!')
