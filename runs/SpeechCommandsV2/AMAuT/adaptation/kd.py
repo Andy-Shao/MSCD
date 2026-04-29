@@ -258,7 +258,8 @@ if __name__ == '__main__':
         if max_accu <= accu:
             max_accu = accu
             store_weight(
-                args=args, aut=aut, clsf=clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path
+                args=args, aut=aut, clsf=clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path,
+                metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
             )
         
         if epoch >= args.max_epoch: break

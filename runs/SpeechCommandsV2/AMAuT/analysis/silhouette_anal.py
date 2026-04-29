@@ -15,6 +15,7 @@ from lib import constants
 from lib.utils import make_unless_exits, print_argparse
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.spSet import SpeechCommandsV2C
+from lib.corruption import CorruptionMeta
 from ..utils import build_model, load_weight
 
 def silhouette_inference(
@@ -105,10 +106,11 @@ if __name__ == '__main__':
     org_scr = silhouette_inference(args=args, aut=std_aut, clsf=std_clsf, data_loader=eval_loader)
 
     print('After Adaptation Analysis...')
-    load_weight(args=args, aut=std_aut, clsf=std_clsf, mode='KD')
+    load_weight(
+        args=args, aut=std_aut, clsf=std_clsf, mode='KD', metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
+    )
     adpt_scr = silhouette_inference(args=args, aut=std_aut, clsf=std_clsf, data_loader=eval_loader)
 
     records.loc[len(records)] = [args.arch, 'embedding', org_scr, adpt_scr, (adpt_scr - org_scr)/abs(org_scr)]
-
     records.to_csv(os.path.join(args.output_path, args.output_file))
     print('END!')

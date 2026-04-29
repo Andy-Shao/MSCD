@@ -13,6 +13,7 @@ from lib import constants
 from lib.utils import make_unless_exits, print_argparse, count_ttl_params, store_model_structure_to_txt
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer
 from lib.spSet import SpeechCommandsV2C
+from lib.corruption import CorruptionMeta
 from ..utils import build_model, load_weight, mlt_inference, __cal_model_path__
 
 if __name__ == '__main__':
@@ -68,7 +69,10 @@ if __name__ == '__main__':
         FrequenceTokenTransformer(),
     ])] * len(corruption_types)
     std_aut, std_clsf = build_model(args=args)
-    aut_pth, clsf_pth = __cal_model_path__(args=args, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path)
+    aut_pth, clsf_pth = __cal_model_path__(
+        args=args, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path, 
+        metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
+    )
     aut_pth = aut_pth.replace('.pt', '.txt')
     clsf_pth = clsf_pth.replace('.pt', '.txt')
     param_num = count_ttl_params(model=std_aut) + count_ttl_params(model=std_clsf)
@@ -92,7 +96,10 @@ if __name__ == '__main__':
     )
 
     print('After Adaptation Analysis...')
-    load_weight(args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION,)
+    load_weight(
+        args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION,
+        metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
+    )
     global_accu, local_accus = mlt_inference(
         args=args, corruption_types=corruption_types, aut=std_aut, clsf=std_clsf, 
         data_loader=eval_loader
