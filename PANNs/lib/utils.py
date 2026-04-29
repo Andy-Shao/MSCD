@@ -23,8 +23,8 @@ def __cal_model_path__(
         c_p = os.path.join(root_path, f'clsf-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
     elif mode == constants.STUDENT_ADAPTATION:
         if root_path is None: root_path = args.std_adpt_wght_pth
-        h_p = os.path.join(root_path, f'panns-std-{constants.dataset_dic[args.dataset]}.pt')
-        c_p = os.path.join(root_path, f'clsf-std-{constants.dataset_dic[args.dataset]}.pt')
+        h_p = os.path.join(root_path, f'panns-std-{constants.dataset_dic[args.dataset]}-{metaInfo.level}.pt')
+        c_p = os.path.join(root_path, f'clsf-std-{constants.dataset_dic[args.dataset]}-{metaInfo.level}.pt')
 
     return h_p, c_p
 

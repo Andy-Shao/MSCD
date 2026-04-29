@@ -22,8 +22,8 @@ def __cal_model_path__(args:argparse.Namespace, mode='origin', metaInfo:Corrupti
         c_p = os.path.join(root_path, f'clsModel-{args.model_level}-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
     elif mode == constants.STUDENT_ADAPTATION:
         if root_path is None: root_path = args.std_adpt_wght_pth
-        h_p = os.path.join(root_path, f'hubert-std-{args.model_level}-{constants.dataset_dic[args.dataset]}.pt')
-        c_p = os.path.join(root_path, f'clsModel-std-{args.model_level}-{constants.dataset_dic[args.dataset]}.pt')
+        h_p = os.path.join(root_path, f'hubert-std-{args.model_level}-{constants.dataset_dic[args.dataset]}-{metaInfo.level}.pt')
+        c_p = os.path.join(root_path, f'clsModel-std-{args.model_level}-{constants.dataset_dic[args.dataset]}-{metaInfo.level}.pt')
 
     return h_p, c_p
 

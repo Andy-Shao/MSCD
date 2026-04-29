@@ -84,8 +84,8 @@ def __cal_model_path__(
         c_p = os.path.join(root_path, f'clsf-{constants.dataset_dic[args.dataset]}-{metaInfo.type}-{metaInfo.level}.pt')
     elif mode == constants.STUDENT_ADAPTATION:
         if root_path is None: root_path = args.std_adpt_wght_pth
-        a_p = os.path.join(root_path, f'aut-std-{constants.dataset_dic[args.dataset]}.pt')
-        c_p = os.path.join(root_path, f'clsf-std-{constants.dataset_dic[args.dataset]}.pt')
+        a_p = os.path.join(root_path, f'aut-std-{constants.dataset_dic[args.dataset]}-{metaInfo.level}.pt')
+        c_p = os.path.join(root_path, f'clsf-std-{constants.dataset_dic[args.dataset]}-{metaInfo.level}.pt')
     return a_p, c_p
 
 def load_weight(
