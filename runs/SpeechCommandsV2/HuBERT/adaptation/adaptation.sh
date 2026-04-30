@@ -22,7 +22,7 @@ python -m runs.SpeechCommandsV2.HuBERT.adaptation.teach_cons --dataset 'SpeechCo
     --lrs '{"WHN":1e-4, "ENQ":7e-5, "END1":1e-4, "END2":1e-4, "ENSC":7e-5, "PSH":7e-5, "TST":1e-4}' \
     --lr_gammas '{"WHN":10, "ENQ":10, "END1":10, "END2":10, "ENSC":10, "PSH":10, "TST":10}' \
     --hub_lr_decaies '{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":1.0, "PSH":1.0, "TST":1.0}' \
-    --adpt_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/TTDA' --max_mode --wandb
+    --adpt_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/TTDA' --wandb
 
 # Knowledge Distillation
 # python -m runs.SpeechCommandsV2.HuBERT.adaptation.kd --dataset 'SpeechCommandsV2' \
