@@ -19,7 +19,7 @@ python -m runs.SpeechCommandsV2.HuBERT.adaptation.teach_cons --dataset 'SpeechCo
     --batch_size 32 --corruption_level 'L1' --max_epoch 20 --num_of_shft 3  \
     --fail_coll_lim 3 --forbid_ls 'TST' \
     --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":1.3, "END2":1.5, "ENSC":1.0, "PSH":1.0, "TST":2.0}' \
-    --lrs '{"WHN":1e-4, "ENQ":1e-4, "END1":1e-4, "END2":1e-4, "ENSC":1e-4, "PSH":1e-4, "TST":1e-4}' \
+    --lrs '{"WHN":1e-4, "ENQ":7e-5, "END1":1e-4, "END2":1e-4, "ENSC":7e-5, "PSH":7e-5, "TST":1e-4}' \
     --lr_gammas '{"WHN":10, "ENQ":10, "END1":10, "END2":10, "ENSC":10, "PSH":10, "TST":10}' \
     --hub_lr_decaies '{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":1.0, "PSH":1.0, "TST":1.0}' \
     --adpt_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/TTDA' --max_mode --wandb
