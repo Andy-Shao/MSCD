@@ -143,6 +143,7 @@ if __name__ == '__main__':
     ap.add_argument('--lw_def_smth', type=float, default=.2)
     ap.add_argument('--ctr_rt', type=float, default=1.)
     ap.add_argument('--ctr_dist', type=str, default='l2', choices=['cos_sim', 'l2', 'sq_l2'])
+    ap.add_argument('--ctr_T', type=float, default=1.)
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -205,7 +206,8 @@ if __name__ == '__main__':
         lr=args.lr, auT=std_hub, auC=std_clsf, auT_decay=args.hub_lr_decay, auC_decay=args.clsf_lr_decay
     )
     ctr_loss_fun = ContrastiveLoss(
-        hi_def_smth=args.hi_def_smth, class_num=args.class_num, device=args.device, dist=args.ctr_dist
+        hi_def_smth=args.hi_def_smth, class_num=args.class_num, device=args.device, dist=args.ctr_dist,
+        tau=args.ctr_T
     )
 
     print('Student Adaptation')
@@ -220,7 +222,8 @@ if __name__ == '__main__':
         if max_accu <= accu:
             max_accu = accu
             store_weight(
-                args=args, hubert=std_hub, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path
+                args=args, hubert=std_hub, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path,
+                metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
             )
 
         if epoch >= args.max_epoch: break
