@@ -17,7 +17,7 @@ from lib.loss import CrossEntropyLabelSmooth
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.component import ReduceChannel
 from lib.spSet import SpeechCommandsV2C
-from lib.adaptation import collect_worst_item
+from lib.adaptation import collect_worst_item, is_stored
 from lib.dataset import PseudoLabelSet, Subset, IdxSet
 from ..utils import build_model, teach_inference
 from HuBERT.lib.utils import load_weight, store_weight
@@ -132,6 +132,7 @@ if __name__ == '__main__':
     ap.add_argument('--max_epoch', type=int, default=20)
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
+    ap.add_argument('--max_mode', action='store_true')
 
     ap.add_argument('--lrs', type=str)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -201,7 +202,7 @@ if __name__ == '__main__':
 
     data_tfs = [ReduceChannel()] * len(corruption_types)
 
-    # max_pl_accu = 0.
+    max_pl_accu = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_accu_analyzing(
@@ -212,9 +213,9 @@ if __name__ == '__main__':
             args=args, hubs=teach_hubs, clsfs=teach_clsfs, data_tfs=data_tfs, step=epoch, logger=wandb_run,
             corruption_types=corruption_types
         )
-        # if max_pl_accu <= pseudo_accu:
-        #     max_pl_accu = pseudo_accu
-        for i, corruption_type in enumerate(corruption_types):
+        max_pl_accu, store_flag = is_stored(max_val=max_pl_accu, curr_val=pseudo_accu, max_mode=args.max_mode)
+        if store_flag:
+            for i, corruption_type in enumerate(corruption_types):
                 teach_hub, teach_clsf = teach_hubs[i], teach_clsfs[i]
                 store_weight(
                     args=args, hubert=teach_hub, clsf=teach_clsf, mode='adaptation', 
