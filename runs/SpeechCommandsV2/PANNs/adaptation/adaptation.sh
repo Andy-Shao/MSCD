@@ -10,6 +10,14 @@ export BASE_PATH=${BASE_PATH:-'/root'}
 #     --lr_momentum 0.9 --pan_lr_decay 1.0 --gent_q 1.1 \
 #     --orig_wght_pth './result/SpeechCommandsV2/PANNs/train' --wandb
 
+python -m runs.SpeechCommandsV2.PANNs.adaptation.ttda --dataset 'SpeechCommandsV2' \
+    --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
+    --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
+    --corruption_type 'WHN' --corruption_level 'L1' --batch_size 70 --max_epoch 20 \
+    --lr 1e-4 --nucnm_rate 1.0 --ent_rate 0.1 --gent_rate 0.0 --mse_rate 0.0 \
+    --lr_momentum 0.9 --pan_lr_decay 1.0 --gent_q 1.1 \
+    --orig_wght_pth './result/SpeechCommandsV2/PANNs/train' --wandb
+
 # python -m runs.SpeechCommandsV2.PANNs.adaptation.ttda --dataset 'SpeechCommandsV2' \
 #     --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
 #     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
@@ -69,11 +77,11 @@ export BASE_PATH=${BASE_PATH:-'/root'}
 #     --adpt_wght_pth './result/SpeechCommandsV2/PANNs/TTDA' --wandb
 
 # Knowledge Distillation
-python -m runs.SpeechCommandsV2.PANNs.adaptation.kd --dataset 'SpeechCommandsV2' \
-    --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
-    --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
-    --batch_size 32 --corruption_level 'L2' --max_epoch 100 --ctr_rt 1.0 --ctr_dist 'sq_l2' --ctr_T 2.0 \
-    --elect_weights '{"WHN":0.8, "ENQ":0.8, "END1":1.5, "END2":1.5, "ENSC":0.9, "PSH":0.8, "TST":1.5}' \
-    --lr 1e-4 --pseudo_threshold 6.0 --lr_cardinality 80 --lr_threshold 20 \
-    --orig_wght_pth './result/SpeechCommandsV2/PANNs/train' \
-    --adpt_wght_pth './result/SpeechCommandsV2/PANNs/Teach-Cons' --wandb
+# python -m runs.SpeechCommandsV2.PANNs.adaptation.kd --dataset 'SpeechCommandsV2' \
+#     --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
+#     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
+#     --batch_size 32 --corruption_level 'L2' --max_epoch 100 --ctr_rt 1.0 --ctr_dist 'sq_l2' --ctr_T 2.0 \
+#     --elect_weights '{"WHN":0.8, "ENQ":0.8, "END1":1.5, "END2":1.5, "ENSC":0.9, "PSH":0.8, "TST":1.5}' \
+#     --lr 1e-4 --pseudo_threshold 6.0 --lr_cardinality 80 --lr_threshold 20 \
+#     --orig_wght_pth './result/SpeechCommandsV2/PANNs/train' \
+#     --adpt_wght_pth './result/SpeechCommandsV2/PANNs/Teach-Cons' --wandb
