@@ -123,7 +123,7 @@ export BASE_PATH=${BASE_PATH:-'/root'}
 #     --elect_weights '{"WHN":0.8, "ENQ":0.8, "END1":1.5, "END2":1.5, "ENSC":0.9, "PSH":0.8, "TST":1.5}' \
 #     --lrs '{"WHN":1e-5, "ENQ":1e-5, "END1":1e-6, "END2":1e-6, "ENSC":1e-5, "PSH":1e-4, "TST":1e-5}' \
 #     --lr_cardinalities '{"WHN":60, "ENQ":60, "END1":60, "END2":60, "ENSC":60, "PSH":60, "TST":60}' \
-#     --adpt_wght_pth './result/SpeechCommandsV2/PANNs/TTDA' --wandb
+#     --adpt_wght_pth './result/SpeechCommandsV2/PANNs/TTDA' --max_mode --wandb
 
 python -m runs.SpeechCommandsV2.PANNs.adaptation.teach_cons --dataset 'SpeechCommandsV2' \
     --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
