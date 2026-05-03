@@ -128,9 +128,9 @@ export BASE_PATH=${BASE_PATH:-'/root'}
 python -m runs.SpeechCommandsV2.PANNs.adaptation.teach_cons --dataset 'SpeechCommandsV2' \
     --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
-    --batch_size 32 --corruption_level 'L1' --num_of_shft 3 --fail_coll_lim 4 --max_epoch 50 --lr_threshold 10 \
+    --batch_size 32 --corruption_level 'L1' --num_of_shft 4 --fail_coll_lim 4 --max_epoch 50 --lr_threshold 10 \
     --elect_weights '{"WHN":0.8, "ENQ":1.0, "END1":1.6, "END2":1.6, "ENSC":0.9, "PSH":1.0, "TST":2.1}' \
-    --lrs '{"WHN":5e-5, "ENQ":3e-5, "END1":2.5e-5, "END2":2.5e-5, "ENSC":3e-5, "PSH":6e-5, "TST":1e-4}' \
+    --lrs '{"WHN":1e-5, "ENQ":3e-5, "END1":1e-5, "END2":1e-5, "ENSC":3e-5, "PSH":6e-5, "TST":1e-4}' \
     --lr_cardinalities '{"WHN":40, "ENQ":40, "END1":40, "END2":40, "ENSC":40, "PSH":60, "TST":40}' \
     --adpt_wght_pth './result/SpeechCommandsV2/PANNs/TTDA' --wandb
 
