@@ -106,13 +106,13 @@ export BASE_PATH=${BASE_PATH:-'/root'}
 #     --lr_momentum 0.9 --pan_lr_decay 1.0 --gent_q 1.6 \
 #     --orig_wght_pth './result/SpeechCommandsV2/PANNs/train' --wandb
 
-python -m runs.SpeechCommandsV2.PANNs.adaptation.ttda --dataset 'SpeechCommandsV2' \
-    --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
-    --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
-    --corruption_type 'TST' --corruption_level 'L1' --batch_size 70 --max_epoch 25 \
-    --lr 1e-4 --nucnm_rate 1.0 --ent_rate 0.1 --gent_rate 0.1 --mse_rate 0.1 \
-    --lr_momentum 0.9 --pan_lr_decay 1.0 --gent_q 1.6 \
-    --orig_wght_pth './result/SpeechCommandsV2/PANNs/train' --wandb
+# python -m runs.SpeechCommandsV2.PANNs.adaptation.ttda --dataset 'SpeechCommandsV2' \
+#     --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
+#     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
+#     --corruption_type 'TST' --corruption_level 'L1' --batch_size 70 --max_epoch 25 \
+#     --lr 1e-4 --nucnm_rate 1.0 --ent_rate 0.1 --gent_rate 0.1 --mse_rate 0.1 \
+#     --lr_momentum 0.9 --pan_lr_decay 1.0 --gent_q 1.6 \
+#     --orig_wght_pth './result/SpeechCommandsV2/PANNs/train' --wandb
 
 # Teacher Consensus
 # python -m runs.SpeechCommandsV2.PANNs.adaptation.teach_cons --dataset 'SpeechCommandsV2' \
@@ -123,6 +123,15 @@ python -m runs.SpeechCommandsV2.PANNs.adaptation.ttda --dataset 'SpeechCommandsV
 #     --elect_weights '{"WHN":0.8, "ENQ":0.8, "END1":1.5, "END2":1.5, "ENSC":0.9, "PSH":0.8, "TST":1.5}' \
 #     --lrs '{"WHN":1e-5, "ENQ":1e-5, "END1":1e-6, "END2":1e-6, "ENSC":1e-5, "PSH":1e-4, "TST":1e-5}' \
 #     --adpt_wght_pth './result/SpeechCommandsV2/PANNs/TTDA' --wandb
+
+python -m runs.SpeechCommandsV2.PANNs.adaptation.teach_cons --dataset 'SpeechCommandsV2' \
+    --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
+    --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
+    --batch_size 32 --corruption_level 'L1' --num_of_shft 3 --fail_coll_lim 3 --max_epoch 20 \
+    --lr_cardinality 40  --lr_threshold 1 \
+    --elect_weights '{"WHN":0.8, "ENQ":1.0, "END1":1.6, "END2":1.6, "ENSC":0.9, "PSH":1.0, "TST":2.1}' \
+    --lrs '{"WHN":1e-4, "ENQ":1e-4, "END1":1e-4, "END2":1e-4, "ENSC":1e-4, "PSH":1e-4, "TST":1e-4}' \
+    --adpt_wght_pth './result/SpeechCommandsV2/PANNs/TTDA' --wandb
 
 # Knowledge Distillation
 # python -m runs.SpeechCommandsV2.PANNs.adaptation.kd --dataset 'SpeechCommandsV2' \
