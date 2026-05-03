@@ -131,7 +131,7 @@ if __name__ == '__main__':
     ap.add_argument('--unfrz_pos', type=int, default=-1)
 
     ap.add_argument('--lrs', type=str)
-    ap.add_argument('--lr_cardinality', type=int, default=40)
+    ap.add_argument('--lr_cardinalities', type=str)
     ap.add_argument('--lr_gamma', type=int, default=10)
     ap.add_argument('--lr_threshold', type=int, default=1)
     ap.add_argument('--lr_momentum', type=float, default=.9)
@@ -152,6 +152,7 @@ if __name__ == '__main__':
     args.arch = 'PANNs'
     args.elect_weights = json.loads(args.elect_weights)
     args.lrs = json.loads(args.lrs)
+    args.lr_cardinalities = json.loads(args.lr_cardinalities)
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = args.forbid_ls.split(',')
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.TEACHER_CONSENSUS)
@@ -256,7 +257,7 @@ if __name__ == '__main__':
 
             if epoch % args.interval == 0:
                 lr_scheduler(
-                    optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
+                    optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinalities[corruption_type],
                     gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
                 )
     wandb_run.finish()
