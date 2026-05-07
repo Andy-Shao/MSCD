@@ -17,6 +17,7 @@ from lib import constants
 from lib.utils import make_unless_exits, print_argparse
 from lib.component import Components, AudioPadding, ReduceChannel
 from lib.spSet import SpeechCommandsV2C
+from lib.corruption import CorruptionMeta
 from ..utils import build_model
 from PANNs.lib.utils import load_weight, __cal_model_path__
 
@@ -96,7 +97,10 @@ if __name__ == '__main__':
     org_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf)
 
     print('After Adaptation Analysis...')
-    load_weight(args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION)
+    load_weight(
+        args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION,
+        metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
+    )
     adpt_scr = silhouette_inference(args=args, pan=std_pan, data_loader=eval_loader, clsf=std_clsf)
 
     records.loc[len(records)] = [args.arch, 'embedding', org_scr, adpt_scr, (adpt_scr - org_scr)/abs(org_scr)]
