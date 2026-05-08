@@ -154,6 +154,7 @@ if __name__ == '__main__':
     ap.add_argument('--lw_def_smth', type=float, default=.2)
     ap.add_argument('--ctr_rt', type=float, default=1.)
     ap.add_argument('--ctr_dist', type=str, default='l2', choices=['cos_sim', 'l2', 'sq_l2'])
+    ap.add_argument('--ctr_T', type=float, default=1.)
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -231,7 +232,7 @@ if __name__ == '__main__':
     )
     ctr_loss_fun = ContrastiveLoss(
         hi_def_smth=args.hi_def_smth, class_num=args.class_num, device=args.device, 
-        dist=args.ctr_dist
+        dist=args.ctr_dist, tau=args.ctr_T
     )
 
     print('Student Adaptation')
@@ -247,7 +248,7 @@ if __name__ == '__main__':
             max_roc_auc = std_roc_auc
             store_weight(
                 args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION, 
-                root_path=args.output_path
+                root_path=args.output_path, metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
             )
         
         if epoch >= args.max_epoch: break
