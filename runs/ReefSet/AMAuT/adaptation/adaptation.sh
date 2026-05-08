@@ -31,7 +31,7 @@ python -m runs.ReefSet.AMAuT.adaptation.kd --dataset 'ReefSet' \
     --adpt_set_path $BASE_PATH'/data/Ada-ReefSet-C' \
     --eval_set_path $BASE_PATH'/data/ReefSet-C' \
     --batch_size 32 --corruption_level 'L1' --max_epoch 20 --lr 1e-4 --pseudo_threshold 7.69 \
-    --ctr_rt 0.0 --ctr_dist 'sq_l2' --ctr_T 1.0 \
+    --ctr_rt 0.0 --ctr_dist 'sq_l2' --ctr_T 1.0 --lr_momentum 0.75 \
     --elect_weights '{"WHN":2.0, "ENQ":1.0, "END1":2.0, "END2":1.0, "ENSC":1.0, "PSH":2.0, "TST":4.0}' \
     --adpt_wght_pth './result/ReefSet/AMAuT/Teach-Cons' \
     --orig_wght_pth $BASE_PATH'/result/ReefSet/AMAuT/train' --wandb
