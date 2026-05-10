@@ -140,13 +140,13 @@ if __name__ == '__main__':
 
     ap.add_argument('--lr', type=float, default=1e-2)
     ap.add_argument('--lr_cardinality', type=int, default=40)
-    ap.add_argument('--lr_gamma', type=int, default=10)
+    ap.add_argument('--lr_gammas', type=str)
     ap.add_argument('--lr_threshold', type=int, default=1)
     ap.add_argument('--lr_momentum', type=float, default=.9)
     ap.add_argument('--interval', type=int, default=1, help='interval number')
 
     ap.add_argument('--model_level', type=str, default='base', choices=['base', 'large', 'x-large'])
-    ap.add_argument('--hub_lr_decay', type=float, default=1.0)
+    ap.add_argument('--hub_lr_decaies', type=str)
     ap.add_argument('--clsf_lr_decay', type=float, default=1.0)
 
     ap.add_argument('--wandb', action='store_true')
@@ -162,6 +162,8 @@ if __name__ == '__main__':
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.arch = 'HuBERT'
     args.elect_weights = json.loads(args.elect_weights)
+    args.hub_lr_decaies = json.loads(args.hub_lr_decaies)
+    args.lr_gammas = json.loads(args.lr_gammas)
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = args.forbid_ls.split(',')
     args.y_score_softmax = True
@@ -196,7 +198,7 @@ if __name__ == '__main__':
         teach_hubs.append(teach_hub)
         teach_clsfs.append(teach_clsf)
         optimizer = build_optimizer(
-            lr=args.lr, auT=teach_hub, auC=teach_clsf, auT_decay=args.hub_lr_decay, 
+            lr=args.lr, auT=teach_hub, auC=teach_clsf, auT_decay=args.hub_lr_decaies[corruption_type], 
             auC_decay=args.clsf_lr_decay
         )
         optimizers.append(optimizer)
@@ -264,7 +266,7 @@ if __name__ == '__main__':
             if epoch % args.interval == 0:
                 lr_scheduler(
                     optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
-                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+                    gamma=args.lr_gammas[corruption_type], threshold=args.lr_threshold, momentum=args.lr_momentum
                 )
 
     wandb_run.finish()
