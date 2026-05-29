@@ -18,7 +18,7 @@ from lib.utils import make_unless_exits, print_argparse
 from lib.loss import CrossEntropyLabelSmooth
 from lib.corruption import CorruptionMeta
 from lib.optimizer import build_optimizer, lr_scheduler
-from lib.component import Components, AudioPadding, ReduceChannel, OneHot2Index
+from lib.component import Components, AudioPadding, ReduceChannel, OneHot2Index, AudioClip
 from lib.acousSet import ReefSetC
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
 from lib.adaptation import collect_worst_item
@@ -200,6 +200,7 @@ if __name__ == '__main__':
     data_tfs = [Components(transforms=[
         Resample(orig_freq=args.sample_rate, new_freq=constants.pann_sample_rate),
         AudioPadding(max_length=args.audio_length, sample_rate=constants.pann_sample_rate, random_shift=False),
+        AudioClip(max_length=args.audio_length, mode='head', is_random=False),
         ReduceChannel()
     ])] * len(corruption_types)
 
