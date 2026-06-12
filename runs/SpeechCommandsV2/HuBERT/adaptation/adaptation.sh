@@ -24,20 +24,20 @@ export BASE_PATH=${BASE_PATH:-'/root'}
 #     --adpt_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/TTDA' --wandb
 
 # Knowledge Distillation
-python -m runs.SpeechCommandsV2.HuBERT.adaptation.kd --dataset 'SpeechCommandsV2' \
-    --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
-    --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
-    --batch_size 32 --corruption_level 'L2' --max_epoch 30 --pseudo_threshold 5.6 --ctr_rt 1.0 \
-    --ctr_dist 'sq_l2' --model_level 'base' \
-    --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":1.0, "PSH":1.0, "TST":1.3}' \
-    --adpt_wght_pth './result/SpeechCommandsV2/HuBERT/Teach-Cons' \
-    --orig_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/train' --wandb
-
 # python -m runs.SpeechCommandsV2.HuBERT.adaptation.kd --dataset 'SpeechCommandsV2' \
 #     --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
 #     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
-#     --batch_size 32 --corruption_level 'L1' --max_epoch 20 --pseudo_threshold 6.77 --ctr_rt 1.0 \
-#     --ctr_dist 'sq_l2' --model_level 'base' --ctr_T 1.0 \
-#     --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":1.3, "END2":1.5, "ENSC":1.0, "PSH":1.0, "TST":2.0}' \
+#     --batch_size 32 --corruption_level 'L2' --max_epoch 30 --pseudo_threshold 5.6 --ctr_rt 1.0 \
+#     --ctr_dist 'sq_l2' --model_level 'base' \
+#     --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":1.0, "PSH":1.0, "TST":1.3}' \
 #     --adpt_wght_pth './result/SpeechCommandsV2/HuBERT/Teach-Cons' \
 #     --orig_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/train' --wandb
+
+python -m runs.SpeechCommandsV2.HuBERT.adaptation.kd --dataset 'SpeechCommandsV2' \
+    --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
+    --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
+    --batch_size 32 --corruption_level 'L1' --max_epoch 20 --pseudo_threshold 6.77 --ctr_rt 1.0 \
+    --ctr_dist 'sq_l2' --model_level 'base' --ctr_T 1.0 \
+    --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":1.3, "END2":1.5, "ENSC":1.0, "PSH":1.0, "TST":2.0}' \
+    --adpt_wght_pth './result/SpeechCommandsV2/HuBERT/Teach-Cons' \
+    --orig_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/train' --wandb
