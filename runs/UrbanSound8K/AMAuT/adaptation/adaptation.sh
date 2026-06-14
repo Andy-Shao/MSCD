@@ -8,7 +8,7 @@ python -m runs.UrbanSound8K.AMAuT.adaptation.teach_cons --dataset 'UrbanSound8K'
     --batch_size 32 --corruption_level 'L2' --num_of_shft 2 --fail_coll_lim 2 --max_epoch 30 \
     --lr '1e-4' --lr_cardinality 60 \
     --elect_weights '{"WHN":0.9, "ENSC":1.0, "PSH":0.9, "TST":1.0}' \
-    --adpt_wght_pth $BASE_PATH'/result/UrbanSound8K/AMAuT/TTDA' --wandb
+    --adpt_wght_pth $BASE_PATH'/result/UrbanSound8K/AMAuT/TTDA' --freeze_aut --wandb
 
 # Knowledge Distillation
 # python -m runs.UrbanSound8K.AMAuT.adaptation.kd --dataset 'UrbanSound8K' \
