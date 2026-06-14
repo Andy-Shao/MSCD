@@ -21,7 +21,7 @@ from lib.optimizer import build_optimizer, lr_scheduler
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer, AudioClip
 from lib.enSet import UrbanSound8KC
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
-from lib.adaptation import collect_worst_item
+from lib.adaptation import collect_worst_item, is_stored
 from ..util import build_model, load_weight, teach_inference, store_weight
 
 def pseudo_labeling(
@@ -145,6 +145,7 @@ if __name__ == '__main__':
 
     ap.add_argument('--wandb', action='store_true')
     ap.add_argument('--seed', type=int, default=2026, help='random seed')
+    ap.add_argument('--max_mode', action='store_true')
 
     args = ap.parse_args()
     if args.dataset == 'UrbanSound8K':
@@ -206,7 +207,7 @@ if __name__ == '__main__':
         FrequenceTokenTransformer()
     ])] * len(corruption_types)
 
-    # max_f1 = 0.
+    max_f1 = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_f1_analyzing(
@@ -217,9 +218,9 @@ if __name__ == '__main__':
             args=args, auts=teach_auts, clsfs=teach_clsfs, corruption_types=corruption_types,
             data_tfs=data_tfs, step=epoch, logger=wandb_run
         )
-        # if max_f1 <= pseudo_f1:
-        #     max_f1 = pseudo_f1
-        for i, corruption_type in enumerate(corruption_types):
+        max_f1, store_flag = is_stored(max_val=max_f1, curr_val=pseudo_f1, max_mode=args.max_mode)
+        if store_flag:
+            for i, corruption_type in enumerate(corruption_types):
                 store_weight(
                     args=args, aut=teach_auts[i], clsf=teach_clsfs[i], mode='adaptation',
                     metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level),
