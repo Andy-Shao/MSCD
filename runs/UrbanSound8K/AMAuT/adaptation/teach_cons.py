@@ -21,7 +21,7 @@ from lib.optimizer import build_optimizer, lr_scheduler
 from lib.component import Components, AmplitudeToDB, FrequenceTokenTransformer, AudioClip
 from lib.enSet import UrbanSound8KC
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
-from lib.adaptation import collect_worst_item, is_stored
+from lib.adaptation import collect_worst_item, is_stored, amaut_freeze
 from ..util import build_model, load_weight, teach_inference, store_weight
 
 def pseudo_labeling(
@@ -146,6 +146,7 @@ if __name__ == '__main__':
     ap.add_argument('--wandb', action='store_true')
     ap.add_argument('--seed', type=int, default=2026, help='random seed')
     ap.add_argument('--max_mode', action='store_true')
+    ap.add_argument('--freeze_aut', action='store_true')
 
     args = ap.parse_args()
     if args.dataset == 'UrbanSound8K':
@@ -232,7 +233,9 @@ if __name__ == '__main__':
         )
         if epoch == args.max_epoch: break
         print('Adapting...')
-        for teach_aut in teach_auts: teach_aut.train()
+        for teach_aut in teach_auts: 
+            teach_aut.train()
+            if args.freeze_aut: amaut_freeze(model=teach_aut, batch=True, drop=True)
         for teach_clsf in teach_clsfs: teach_clsf.train()
         for i, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
             adpt_set = UrbanSound8KC(
