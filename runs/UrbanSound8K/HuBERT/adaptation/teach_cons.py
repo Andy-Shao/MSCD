@@ -19,7 +19,7 @@ from lib.corruption import CorruptionMeta
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.component import ReduceChannel, AudioClip, Components
 from lib.enSet import UrbanSound8KC
-from lib.adaptation import collect_worst_item, is_stored
+from lib.adaptation import collect_worst_item, is_stored, hub_clsf_freeze
 from lib.dataset import PseudoLabelSet, Subset, IdxSet
 from ..utils import build_model, teach_inference
 from HuBERT.lib.utils import load_weight, store_weight
@@ -139,6 +139,7 @@ if __name__ == '__main__':
     ap.add_argument('--model_level', type=str, default='base', choices=['base', 'large', 'x-large'])
     ap.add_argument('--hub_lr_decay', type=float, default=1.0)
     ap.add_argument('--clsf_lr_decay', type=float, default=1.0)
+    ap.add_argument('--freeze_hub_clsf', action='store_true')
 
     ap.add_argument('--wandb', action='store_true')
     ap.add_argument('--seed', type=int, default=2026, help='random seed')
@@ -221,7 +222,9 @@ if __name__ == '__main__':
         if epoch == args.max_epoch: break
         print('Adapting...')
         for teach_hub in teach_hubs: teach_hub.train()
-        for teach_clsf in teach_clsfs: teach_clsf.train()
+        for teach_clsf in teach_clsfs: 
+            teach_clsf.train()
+            if args.freeze_hub_clsf: hub_clsf_freeze(model=teach_clsf)
         for i, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
             adpt_set = UrbanSound8KC(
                 root_path=args.adpt_set_path, corruption_type=corruption_type, corruption_level=args.corruption_level,
