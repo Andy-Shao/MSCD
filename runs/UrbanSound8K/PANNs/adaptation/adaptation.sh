@@ -6,7 +6,7 @@ python -m runs.UrbanSound8K.PANNs.adaptation.teach_cons --dataset 'UrbanSound8K'
     --adpt_set_path $BASE_PATH'/data/Ada-UrbanSound8K-C' \
     --eval_set_path $BASE_PATH'/data/UrbanSound8K-C' \
     --corruption_level 'L2' --batch_size 33 --max_epoch 10 --lr 1e-5 \
-    --num_of_shft 1 --fail_coll_lim 2 --lr_gamma 30 \
+    --num_of_shft 2 --fail_coll_lim 2 --lr_gamma 30 \
     --elect_weights '{"WHN":1.5, "ENSC":0.8, "PSH":1.1, "TST":1.5}' \
     --adpt_wght_pth $BASE_PATH'/result/UrbanSound8K/PANNs/TTDA' --wandb
 
