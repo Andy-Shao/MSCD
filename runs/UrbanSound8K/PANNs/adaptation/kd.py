@@ -228,6 +228,7 @@ if __name__ == '__main__':
             max_f1 = global_f1
             store_weight(
                 args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path,
+                metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
             )
 
         if epoch >= args.max_epoch: break
