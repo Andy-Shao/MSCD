@@ -12,6 +12,7 @@ from lib import constants
 from lib.utils import make_unless_exits, print_argparse, count_ttl_params, store_model_structure_to_txt
 from lib.component import Components, AudioClip, ReduceChannel
 from lib.enSet import UrbanSound8KC
+from lib.corruption import CorruptionMeta
 from ..utils import build_model, mlt_inference
 from PANNs.lib.utils import __cal_model_path__, load_weight
 
@@ -60,7 +61,10 @@ if __name__ == '__main__':
 
     print("Initialization...")
     std_pan, std_clsf = build_model(args=args, use_pre_weight=False)
-    pan_pth, clsf_pth = __cal_model_path__(args=args, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path)
+    pan_pth, clsf_pth = __cal_model_path__(
+        args=args, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path,
+        metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
+    )
     pan_pth = pan_pth.replace('.pt', '.txt')
     clsf_pth = clsf_pth.replace('.pt', '.txt')
     param_num = count_ttl_params(model=std_pan) + count_ttl_params(model=std_clsf)
@@ -82,7 +86,10 @@ if __name__ == '__main__':
     )
 
     print('After Adaptation Analysis...')
-    load_weight(args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION)
+    load_weight(
+        args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION,
+        metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
+    )
     global_accu, local_accus = mlt_inference(
         args=args, corruption_types=corruption_types, pan=std_pan, clsf=std_clsf, data_loader=eval_loader
     )
