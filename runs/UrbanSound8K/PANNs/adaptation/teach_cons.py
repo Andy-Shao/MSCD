@@ -137,7 +137,7 @@ if __name__ == '__main__':
     ap.add_argument('--lr_cardinality', type=int, default=40)
     ap.add_argument('--lr_gamma', type=int, default=10)
     ap.add_argument('--lr_threshold', type=int, default=1)
-    ap.add_argument('--lr_momentum', type=float, default=.9)
+    ap.add_argument('--lr_momentums', type=str)
     ap.add_argument('--pan_lr_decay', type=float, default=1.0)
     ap.add_argument('--clsf_lr_decay', type=float, default=1.0)
     ap.add_argument('--interval', type=int, default=1, help='interval number')
@@ -156,6 +156,7 @@ if __name__ == '__main__':
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.arch = 'PANNs'
     args.elect_weights = json.loads(args.elect_weights)
+    args.lr_momentums = json.loads(args.lr_momentums)
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = [k.strip() for k in args.forbid_ls.split(',')]
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.TEACHER_CONSENSUS)
@@ -259,7 +260,7 @@ if __name__ == '__main__':
             if epoch % args.interval == 0:
                 lr_scheduler(
                     optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality,
-                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentums[corruption_type]
                 )
     wandb_run.finish()
     print('END!')
