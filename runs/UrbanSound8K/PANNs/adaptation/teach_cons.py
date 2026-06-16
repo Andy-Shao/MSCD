@@ -20,7 +20,7 @@ from lib.optimizer import build_optimizer, lr_scheduler
 from lib.component import Components, AudioClip, ReduceChannel
 from lib.enSet import UrbanSound8KC
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
-from lib.adaptation import collect_worst_item
+from lib.adaptation import collect_worst_item, is_stored
 from ..utils import build_model, teach_inference
 from PANNs.lib.utils import load_weight, store_weight, pan_freeze
 
@@ -132,6 +132,7 @@ if __name__ == '__main__':
     ap.add_argument('--max_epoch', type=int, default=20)
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
+    ap.add_argument('--max_mode', action='store_true')
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -212,8 +213,8 @@ if __name__ == '__main__':
             args=args, pans=teach_pans, clsfs=teach_clsfs, data_tfs=data_tfs, corruption_types=corruption_types,
             step=epoch, logger=wandb_run
         )
-        if max_pl_f1 <= pseudo_f1:
-            max_pl_f1 = pseudo_f1
+        max_pl_f1, store_flag = is_stored(max_val=max_pl_f1, curr_val=pseudo_f1, max_mode=args.max_mode)
+        if store_flag:
             for i, corruption_type in enumerate(corruption_types):
                 store_weight(
                     args=args, panns=teach_pans[i], clsf=teach_clsfs[i], mode='adaptation', root_path=args.output_path,

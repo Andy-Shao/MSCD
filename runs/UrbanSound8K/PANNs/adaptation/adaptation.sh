@@ -9,7 +9,7 @@ python -m runs.UrbanSound8K.PANNs.adaptation.teach_cons --dataset 'UrbanSound8K'
     --num_of_shft 1 --fail_coll_lim 2 --lr_gamma 30 \
     --elect_weights '{"WHN":1.5, "ENSC":0.8, "PSH":1.075, "TST":1.5}' \
     --lr_momentums '{"WHN":0.9, "ENSC":0.9, "PSH":0.9, "TST":0.9}' \
-    --adpt_wght_pth $BASE_PATH'/result/UrbanSound8K/PANNs/TTDA' --wandb
+    --adpt_wght_pth $BASE_PATH'/result/UrbanSound8K/PANNs/TTDA' --max_mode --wandb
 
 # Knowledge Distillation
 # python -m runs.UrbanSound8K.PANNs.adaptation.kd --dataset 'UrbanSound8K' \
