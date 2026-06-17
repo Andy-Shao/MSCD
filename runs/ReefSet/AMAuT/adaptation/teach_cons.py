@@ -151,7 +151,7 @@ if __name__ == '__main__':
     ap.add_argument('--unfrz_pos', type=int, default=-1)
     ap.add_argument('--max_mode', action='store_true')
 
-    ap.add_argument('--lr', type=float, default=1e-2)
+    ap.add_argument('--lrs', type=str)
     ap.add_argument('--lr_cardinality', type=int, default=40)
     ap.add_argument('--lr_gamma', type=int, default=10)
     ap.add_argument('--lr_threshold', type=int, default=1)
@@ -173,6 +173,7 @@ if __name__ == '__main__':
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.arch = 'AMAuT'
     args.elect_weights = json.loads(args.elect_weights)
+    args.lrs = json.loads(args.lrs)
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = args.forbid_ls.split(',')
     args.y_score_softmax = True
@@ -213,7 +214,7 @@ if __name__ == '__main__':
         load_weight(args=args, aut=aut, clsf=clsf, mode='adaptation', metaInfo=cmeta)
         auts.append(aut)
         clsfs.append(clsf)
-        optimizer = build_optimizer(lr=args.lr, auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay)
+        optimizer = build_optimizer(lr=args.lrs[corruption_type], auT=aut, auC=clsf, auT_decay=args.aut_lr_decay, auC_decay=args.clsf_lr_decay)
         optimizers.append(optimizer)
     data_tfs = [Components(transforms=[
         AudioClip(max_length=args.audio_length, mode='head', is_random=False),
