@@ -140,13 +140,13 @@ if __name__ == '__main__':
 
     ap.add_argument('--lr', type=float, default=1e-2)
     ap.add_argument('--lr_cardinality', type=int, default=40)
-    ap.add_argument('--lr_gammas', type=str)
+    ap.add_argument('--lr_gammas', type=str, default='{"WHN":10, "ENQ":10, "END1":10, "END2":10, "ENSC":10, "PSH":10, "TST":10}')
     ap.add_argument('--lr_threshold', type=int, default=1)
     ap.add_argument('--lr_momentum', type=float, default=.9)
     ap.add_argument('--interval', type=int, default=1, help='interval number')
 
     ap.add_argument('--model_level', type=str, default='base', choices=['base', 'large', 'x-large'])
-    ap.add_argument('--hub_lr_decaies', type=str)
+    ap.add_argument('--hub_lr_decaies', type=str, default='{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":1.0, "PSH":1.0, "TST":1.0}')
     ap.add_argument('--clsf_lr_decay', type=float, default=1.0)
 
     ap.add_argument('--wandb', action='store_true')
