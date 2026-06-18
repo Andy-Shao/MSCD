@@ -20,7 +20,7 @@ from lib.corruption import CorruptionMeta
 from lib.optimizer import build_optimizer, lr_scheduler
 from lib.acousSet import ReefSetC
 from lib.dataset import IdxSet, PseudoLabelSet, Subset
-from lib.adaptation import collect_worst_item
+from lib.adaptation import collect_worst_item, is_stored
 from ..utils import build_model, teach_inference
 from HuBERT.lib.utils import load_weight, store_weight
 
@@ -137,6 +137,7 @@ if __name__ == '__main__':
     ap.add_argument('--max_epoch', type=int, default=20)
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
+    ap.add_argument('--max_mode', action='store_true')
 
     ap.add_argument('--lr', type=float, default=1e-2)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -207,7 +208,7 @@ if __name__ == '__main__':
         ReduceChannel()
     ])] * len(corruption_types)
 
-    # max_roc_auc = 0.
+    max_roc_auc = 0.
     for epoch in range(args.max_epoch+1):
         print(f'Epoch: {epoch+1}/{args.max_epoch} processing...')
         teacher_roc_auc_analyzing(
@@ -222,14 +223,16 @@ if __name__ == '__main__':
             args=args, corruption_types=corruption_types, idx_cache=idx_cache, pred_cache=pred_cache, 
             output_cache=output_cache, step=epoch, logger=wandb_run, feature_label=False
         )
-        for i, corruption_type in enumerate(corruption_types):
-            teach_hub, teach_clsf = teach_hubs[i], teach_clsfs[i]
-            store_weight(
-                args=args, hubert=teach_hub, clsf=teach_clsf, mode='adaptation', 
-                metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level), 
-                root_path=args.output_path
-            )
-
+        max_roc_auc, store_flag = is_stored(max_val=max_roc_auc, curr_val=pl_roc_auc, max_mode=args.max_mode)
+        if store_flag:
+            for i, corruption_type in enumerate(corruption_types):
+                teach_hub, teach_clsf = teach_hubs[i], teach_clsfs[i]
+                store_weight(
+                    args=args, hubert=teach_hub, clsf=teach_clsf, mode='adaptation', 
+                    metaInfo=CorruptionMeta(type=corruption_type, level=args.corruption_level), 
+                    root_path=args.output_path
+                )
+        
         if epoch == args.max_epoch: break
         print('Adapting...')
         for teach_hub in teach_hubs: teach_hub.train()
