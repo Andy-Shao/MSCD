@@ -139,7 +139,7 @@ if __name__ == '__main__':
     ap.add_argument('--unfrz_pos', type=int, default=-1)
     ap.add_argument('--max_mode', action='store_true')
 
-    ap.add_argument('--lr', type=float, default=1e-2)
+    ap.add_argument('--lrs', type=str, default='{"WHN":1e-4, "ENQ":1e-4, "END1":1e-4, "END2":1e-4, "ENSC":1e-4, "PSH":1e-4, "TST":1e-4}')
     ap.add_argument('--lr_cardinality', type=int, default=40)
     ap.add_argument('--lr_gammas', type=str, default='{"WHN":10, "ENQ":10, "END1":10, "END2":10, "ENSC":10, "PSH":10, "TST":10}')
     ap.add_argument('--lr_threshold', type=int, default=1)
@@ -165,6 +165,7 @@ if __name__ == '__main__':
     args.elect_weights = json.loads(args.elect_weights)
     args.hub_lr_decaies = json.loads(args.hub_lr_decaies)
     args.lr_gammas = json.loads(args.lr_gammas)
+    args.lrs = json.loads(args.lrs)
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = args.forbid_ls.split(',')
     args.y_score_softmax = True
@@ -199,7 +200,7 @@ if __name__ == '__main__':
         teach_hubs.append(teach_hub)
         teach_clsfs.append(teach_clsf)
         optimizer = build_optimizer(
-            lr=args.lr, auT=teach_hub, auC=teach_clsf, auT_decay=args.hub_lr_decaies[corruption_type], 
+            lr=args.lrs[corruption_type], auT=teach_hub, auC=teach_clsf, auT_decay=args.hub_lr_decaies[corruption_type], 
             auC_decay=args.clsf_lr_decay
         )
         optimizers.append(optimizer)
