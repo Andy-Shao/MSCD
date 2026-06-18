@@ -23,7 +23,7 @@ BASE_PATH=${BASE_PATH:-'/root'}
 python -m runs.ReefSet.AMAuT.adaptation.kd --dataset 'ReefSet' \
     --adpt_set_path $BASE_PATH'/data/Ada-ReefSet-C' \
     --eval_set_path $BASE_PATH'/data/ReefSet-C' \
-    --batch_size 32 --corruption_level 'L2' --max_epoch 20 --lr 1e-4 --pseudo_threshold 7.85 \
+    --batch_size 32 --corruption_level 'L2' --max_epoch 10 --lr 1e-4 --pseudo_threshold 7.85 \
     --ctr_rt 0.0 --ctr_dist 'sq_l2' \
     --elect_weights '{"WHN":1.1, "ENQ":1.0, "END1":2.0, "END2":1.1, "ENSC":1.0, "PSH":1.0, "TST":3.0}' \
     --adpt_wght_pth './result/ReefSet/AMAuT/Teach-Cons' \
