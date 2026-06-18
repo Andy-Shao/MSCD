@@ -7,7 +7,7 @@ python -m runs.ReefSet.HuBERT.adaptation.teach_cons --dataset 'ReefSet' \
     --eval_set_path $BASE_PATH'/data/ReefSet-C' \
     --batch_size 32 --corruption_level 'L2' --num_of_shft 3 --fail_coll_lim 3 --max_epoch 20 \
     --lrs '{"WHN":1e-5, "ENQ":1e-4, "END1":1e-4, "END2":1e-5, "ENSC":1e-4, "PSH":1e-5, "TST":1e-4}' \
-    --elect_weights '{"WHN":1.0, "ENQ":0.8, "END1":1.0, "END2":1.0, "ENSC":0.8, "PSH":1.5, "TST":3.0}' \
+    --elect_weights '{"WHN":1.0, "ENQ":0.8, "END1":1.0, "END2":1.0, "ENSC":0.8, "PSH":2.5, "TST":3.0}' \
     --adpt_wght_pth $BASE_PATH'/result/ReefSet/HuBERT/TTDA' --wandb
 # python -m runs.ReefSet.HuBERT.adaptation.teach_cons --dataset 'ReefSet' \
 #     --adpt_set_path $BASE_PATH'/data/Ada-ReefSet-C' \
