@@ -14,7 +14,7 @@ export BASE_PATH=${BASE_PATH:-'/root'}
 python -m runs.ReefSet.HuBERT.adaptation.teach_cons --dataset 'ReefSet' \
     --adpt_set_path $BASE_PATH'/data/Ada-ReefSet-C' \
     --eval_set_path $BASE_PATH'/data/ReefSet-C' \
-    --batch_size 32 --corruption_level 'L1' --num_of_shft 3 --fail_coll_lim 3 --max_epoch 20 \
+    --batch_size 32 --corruption_level 'L1' --num_of_shft 3 --fail_coll_lim 3 --max_epoch 10 \
     --elect_weights '{"WHN":0.9, "ENQ":1.0, "END1":1.5, "END2":1.0, "ENSC":1.0, "PSH":3.5, "TST":3.0}' \
     --lrs '{"WHN":1e-4, "ENQ":1e-4, "END1":1e-4, "END2":1e-4, "ENSC":1e-4, "PSH":1e-4, "TST":1e-4}' \
     --adpt_wght_pth $BASE_PATH'/result/ReefSet/HuBERT/TTDA' --wandb
