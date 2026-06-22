@@ -143,7 +143,7 @@ if __name__ == '__main__':
     ap.add_argument('--lr_gamma', type=int, default=10)
     ap.add_argument('--lr_threshold', type=int, default=1)
     ap.add_argument('--lr_momentum', type=float, default=.9)
-    ap.add_argument('--pan_lr_decay', type=float, default=1.0)
+    ap.add_argument('--pan_lr_decaies', type=str, default='{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":1.0, "PSH":1.0, "TST":1.0}')
     ap.add_argument('--clsf_lr_decay', type=float, default=1.0)
     ap.add_argument('--interval', type=int, default=1, help='interval number')
 
@@ -161,6 +161,7 @@ if __name__ == '__main__':
     args.arch = 'PANNs'
     args.elect_weights = json.loads(args.elect_weights)
     args.lrs = json.loads(args.lrs)
+    args.pan_lr_decaies = json.loads(args.pan_lr_decaies)
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = [k.strip() for k in args.forbid_ls.split(',')]
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.TEACHER_CONSENSUS)
@@ -193,7 +194,7 @@ if __name__ == '__main__':
         load_weight(args=args, panns=teach_pan, clsf=teach_clsf, mode='adaptation', metaInfo=cmeta)
         teach_pans.append(teach_pan); teach_clsfs.append(teach_clsf)
         optimizer = build_optimizer(
-            lr=args.lrs[corruption_type], auT=teach_pan, auC=teach_clsf, auT_decay=args.pan_lr_decay, 
+            lr=args.lrs[corruption_type], auT=teach_pan, auC=teach_clsf, auT_decay=args.pan_lr_decaies[corruption_type], 
             auC_decay=args.clsf_lr_decay
         )
         optimizers.append(optimizer)

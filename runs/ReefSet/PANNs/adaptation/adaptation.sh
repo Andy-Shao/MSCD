@@ -8,7 +8,8 @@ python -m runs.ReefSet.PANNs.adaptation.teach_cons --dataset 'ReefSet' \
     --batch_size 32 --corruption_level 'L2' --num_of_shft 3 --fail_coll_lim 5 --max_epoch 20 \
     --elect_weights '{"WHN":1.0, "ENQ":0.8, "END1":1.0, "END2":0.9, "ENSC":0.8, "PSH":3.0, "TST":1.0}' \
     --lrs '{"WHN":1e-5, "ENQ":1e-4, "END1":1e-4, "END2":1e-5, "ENSC":1e-5, "PSH":1e-4, "TST":1e-4}' \
-    --adpt_wght_pth $BASE_PATH'/result/ReefSet/PANNs/TTDA' --freeze_pan --wandb
+    --pan_lr_decaies '{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":0.55, "PSH":1.0, "TST":1.0}' \
+    --adpt_wght_pth $BASE_PATH'/result/ReefSet/PANNs/TTDA' --wandb
 
 # Knowledge Distillation
 # python -m runs.ReefSet.PANNs.adaptation.kd --dataset 'ReefSet' \
