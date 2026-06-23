@@ -152,6 +152,7 @@ if __name__ == '__main__':
     ap.add_argument('--ctr_rt', type=float, default=1.)
     ap.add_argument('--ctr_dist', type=str, default='l2', choices=['cos_sim', 'l2', 'sq_l2'])
     ap.add_argument('--ctr_T', type=float, default=1.)
+    ap.add_argument('--freeze_pan', action='store_true')
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -233,13 +234,14 @@ if __name__ == '__main__':
         if max_roc_auc <= global_roc_auc:
             max_roc_auc = global_roc_auc
             store_weight(
-                args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path
+                args=args, panns=std_pan, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path,
+                metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
             )
         
         if epoch >= args.max_epoch: break
         print('Adaptating...')
         std_pan.train(); std_clsf.train()
-        pan_freeze(pan=std_pan, batch1d=True, batch2d=True)
+        if args.freeze_pan: pan_freeze(pan=std_pan, batch1d=True, batch2d=True)
         ttl_loss = 0.; ttl_clsf_loss = 0.; ttl_ctr_loss = 0.
         for adpt_data in tqdm(adpt_loader):
             labels = adpt_data[-1].to(args.device)
