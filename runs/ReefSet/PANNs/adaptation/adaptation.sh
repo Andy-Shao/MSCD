@@ -27,4 +27,4 @@ python -m runs.ReefSet.PANNs.adaptation.kd --dataset 'ReefSet' \
     --ctr_dist 'sq_l2' --ctr_T 1.0 --lr 1e-4 \
     --elect_weights '{"WHN":1.0, "ENQ":0.8, "END1":1.0, "END2":0.9, "ENSC":0.8, "PSH":3.0, "TST":1.0}' \
     --orig_wght_pth $BASE_PATH'/result/ReefSet/PANNs/train' \
-    --adpt_wght_pth './result/ReefSet/PANNs/Teach-Cons' --wandb
+    --adpt_wght_pth './result/ReefSet/PANNs/Teach-Cons' --freeze_pan --wandb
