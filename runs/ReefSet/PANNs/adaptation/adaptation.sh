@@ -16,6 +16,7 @@ python -m runs.ReefSet.PANNs.adaptation.teach_cons --dataset 'ReefSet' \
     --eval_set_path $BASE_PATH'/data/ReefSet-C' \
     --batch_size 32 --corruption_level 'L1' --num_of_shft 3 --fail_coll_lim 3 --max_epoch 20 \
     --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":1.0, "PSH":3.0, "TST":1.5}' \
+    --lr_momentums '{"WHN":0.9, "ENQ":0.9, "END1":0.9, "END2":0.9, "ENSC":0.75, "PSH":0.9, "TST":0.9}' \
     --adpt_wght_pth $BASE_PATH'/result/ReefSet/PANNs/TTDA' --wandb
 
 # Knowledge Distillation
