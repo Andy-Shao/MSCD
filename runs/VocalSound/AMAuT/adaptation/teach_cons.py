@@ -134,6 +134,7 @@ if __name__ == '__main__':
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
     ap.add_argument('--max_mode', action='store_true')
+    ap.add_argument('--freeze_aut', action='store_true')
 
     ap.add_argument('--lr', type=float, default=1e-2)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -235,7 +236,7 @@ if __name__ == '__main__':
         print('Adapting...')
         for aut in auts: 
             aut.train()
-            amaut_freeze(model=aut, drop=False)
+            if args.freeze_aut: amaut_freeze(model=aut, drop=False)
         for clsf in clsfs: clsf.train()
         for i, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
             adpt_set = VocalSoundC(
