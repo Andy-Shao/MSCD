@@ -131,7 +131,7 @@ if __name__ == '__main__':
     ap.add_argument('--lr_cardinality', type=int, default=40)
     ap.add_argument('--lr_gamma', type=int, default=10)
     ap.add_argument('--lr_threshold', type=int, default=1)
-    ap.add_argument('--lr_momentum', type=float, default=.9)
+    ap.add_argument('--lr_momentums', type=str, default='{"WHN":0.9, "ENQ":0.9, "END1":0.9, "END2":0.9, "ENSC":0.9, "PSH":0.9, "TST":0.9}')
     ap.add_argument('--interval', type=int, default=1, help='interval number')
 
     ap.add_argument('--model_level', type=str, default='base', choices=['base', 'large', 'x-large'])
@@ -152,6 +152,7 @@ if __name__ == '__main__':
     args.arch = 'HuBERT'
     args.elect_weights = json.loads(args.elect_weights)
     args.lrs = json.loads(args.lrs)
+    args.lr_momentums = json.loads(args.lr_momentums)
     if not args.forbid_ls.strip():  args.forbid_ls = []
     else: args.forbid_ls = args.forbid_ls.split(',')
     args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.TEACHER_CONSENSUS)
@@ -249,7 +250,7 @@ if __name__ == '__main__':
             if epoch % args.interval == 0:
                 lr_scheduler(
                     optimizer=optimizer, epoch=epoch+1, lr_cardinality=args.lr_cardinality, 
-                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentum
+                    gamma=args.lr_gamma, threshold=args.lr_threshold, momentum=args.lr_momentums[corruption_type]
                 )
     wandb_run.finish()
     print('END!')
