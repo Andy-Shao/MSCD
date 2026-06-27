@@ -18,7 +18,7 @@ python -m runs.VocalSound.HuBERT.adaptation.teach_cons --dataset 'VocalSound' \
     --batch_size 32 --corruption_level 'L1' --num_of_shft 3 --fail_coll_lim 3 --model_level 'base' \
     --max_epoch 15 \
     --elect_weights '{"WHN":1.2, "ENQ":1.0, "END1":1.3, "END2":1.3, "ENSC":1.0, "PSH":1.2, "TST":1.0}' \
-    --lrs '{"WHN":1e-4, "ENQ":1e-4, "END1":1e-4, "END2":1e-4, "ENSC":1e-4, "PSH":1e-5, "TST":1e-4}' \
+    --lrs '{"WHN":1e-4, "ENQ":1e-4, "END1":1e-5, "END2":1e-5, "ENSC":1e-4, "PSH":1e-5, "TST":1e-4}' \
     --adpt_wght_pth $BASE_PATH'/result/VocalSound/HuBERT/TTDA' --wandb
 
 # Knowledge Distillation
