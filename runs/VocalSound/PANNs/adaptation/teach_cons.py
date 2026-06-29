@@ -130,7 +130,7 @@ if __name__ == '__main__':
     ap.add_argument('--max_mode', action='store_true')
     ap.add_argument('--freeze_pan', action='store_true')
 
-    ap.add_argument('--lrs', type=str)
+    ap.add_argument('--lrs', type=str, default='{"WHN":1e-4, "ENQ":1e-4, "END1":1e-4, "END2":1e-4, "ENSC":1e-4, "PSH":1e-4, "TST":1e-4}')
     ap.add_argument('--lr_cardinality', type=int, default=40)
     ap.add_argument('--lr_gamma', type=int, default=10)
     ap.add_argument('--lr_threshold', type=int, default=1)
