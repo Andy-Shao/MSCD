@@ -128,6 +128,7 @@ if __name__ == '__main__':
     ap.add_argument('--forbid_ls', type=str, default="")
     ap.add_argument('--unfrz_pos', type=int, default=-1)
     ap.add_argument('--max_mode', action='store_true')
+    ap.add_argument('--freeze_pan', action='store_true')
 
     ap.add_argument('--lrs', type=str)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -221,7 +222,7 @@ if __name__ == '__main__':
         print('Adapting...')
         for teach_pan in teach_pans: 
             teach_pan.train()
-            pan_freeze(pan=teach_pan, batch1d=True, batch2d=True)
+            if args.freeze_pan: pan_freeze(pan=teach_pan, batch1d=True, batch2d=True)
         for teach_clsf in teach_clsfs: teach_clsf.train()
         for idx, corruption_type in tqdm(enumerate(corruption_types), total=len(corruption_types), position=0):
             adpt_set = VocalSoundC(
