@@ -145,6 +145,7 @@ if __name__ == '__main__':
     ap.add_argument('--ctr_dist', type=str, default='l2', choices=['cos_sim', 'l2', 'sq_l2'])
     ap.add_argument('--ctr_T', type=float, default=1.)
     ap.add_argument('--max_mode', action='store_true')
+    ap.add_argument('--freeze_pan', action='store_true')
 
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--lr_cardinality', type=int, default=40)
@@ -221,13 +222,16 @@ if __name__ == '__main__':
             args=args, pan=std_pan, clsf=std_clsf, corruption_types=corruption_types, data_tfs=data_tfs, 
             step=epoch, logger=wandb_run
         )
-        max_accu, store_stage = is_stored(max_val=max_accu, curr_val=accu, max_mode=args.max_mode)
-        if store_stage:
-            store_weight(args=args, panns=std_pan, clsf=std_clsf, mode='KD', root_path=args.output_path)
+        max_accu, store_flag = is_stored(max_val=max_accu, curr_val=accu, max_mode=args.max_mode)
+        if store_flag:
+            store_weight(
+                args=args, panns=std_pan, clsf=std_clsf, mode='KD', root_path=args.output_path,
+                metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
+            )
         if epoch >= args.max_epoch: break
         print('Adaptating...')
         std_pan.train(); std_clsf.train()
-        pan_freeze(pan=std_pan, batch1d=True, batch2d=True)
+        if args.freeze_pan: pan_freeze(pan=std_pan, batch1d=True, batch2d=True)
         ttl_loss = 0.; ttl_clsf_loss = 0.; ttl_ctr_loss = 0.
         for adpt_data in tqdm(adpt_loader):
             labels = adpt_data[-1].to(args.device)
