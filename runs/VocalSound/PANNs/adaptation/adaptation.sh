@@ -19,12 +19,22 @@ export BASE_PATH=${BASE_PATH:-'/root'}
 #     --adpt_wght_pth $BASE_PATH'/result/VocalSound/PANNs/TTDA' --freeze_pan --forbid_ls 'END1' --wandb
 
 # Knowledge Distillation
+# python -m runs.VocalSound.PANNs.adaptation.kd --dataset 'VocalSound' \
+#     --adpt_set_path $BASE_PATH'/data/Ada-VocalSound-C' \
+#     --eval_set_path $BASE_PATH'/data/VocalSound-C' \
+#     --corruption_level 'L2' --batch_size 32 --max_epoch 40 --lr 5e-4 --pseudo_threshold 8.85 \
+#     --ctr_rt 1.0 --ctr_dist 'sq_l2' --ctr_T 1.0 --lr_cardinality 60 \
+#     --elect_weights '{"WHN":1.0, "ENQ":1.5, "END1":3.0, "END2":3.0, "ENSC":1.0, "PSH":1.0, "TST":1.0}' \
+#     --orig_wght_pth $BASE_PATH'/result/VocalSound/PANNs/train' \
+#     --adpt_wght_pth './result/VocalSound/PANNs/Teach-Cons' \
+#     --max_mode --freeze_pan --wandb
+
 python -m runs.VocalSound.PANNs.adaptation.kd --dataset 'VocalSound' \
     --adpt_set_path $BASE_PATH'/data/Ada-VocalSound-C' \
     --eval_set_path $BASE_PATH'/data/VocalSound-C' \
-    --corruption_level 'L2' --batch_size 32 --max_epoch 40 --lr 5e-4 --pseudo_threshold 8.85 \
+    --corruption_level 'L1' --batch_size 32 --max_epoch 40 --lr 5e-4 --pseudo_threshold 6.92 \
     --ctr_rt 1.0 --ctr_dist 'sq_l2' --ctr_T 1.0 --lr_cardinality 60 \
-    --elect_weights '{"WHN":1.0, "ENQ":1.5, "END1":3.0, "END2":3.0, "ENSC":1.0, "PSH":1.0, "TST":1.0}' \
+    --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":3.0, "END2":1.0, "ENSC":1.0, "PSH":1.0, "TST":1.0}' \
     --orig_wght_pth $BASE_PATH'/result/VocalSound/PANNs/train' \
     --adpt_wght_pth './result/VocalSound/PANNs/Teach-Cons' \
     --max_mode --freeze_pan --wandb
