@@ -30,6 +30,7 @@ if __name__ == '__main__':
 
     ap.add_argument('--wandb', action='store_true')
     ap.add_argument('--seed', type=int, default=2026, help='random seed')
+    ap.add_argument('--print_arch', action='store_true')
 
     args = ap.parse_args()
     if args.dataset == 'SpeechCommandsV2':
@@ -76,8 +77,8 @@ if __name__ == '__main__':
     aut_pth = aut_pth.replace('.pt', '.txt')
     clsf_pth = clsf_pth.replace('.pt', '.txt')
     param_num = count_ttl_params(model=std_aut) + count_ttl_params(model=std_clsf)
-    store_model_structure_to_txt(model=std_aut, output_path=aut_pth)
-    store_model_structure_to_txt(model=std_clsf, output_path=clsf_pth)
+    if args.print_arch: store_model_structure_to_txt(model=std_aut, output_path=aut_pth)
+    if args.print_arch: store_model_structure_to_txt(model=std_clsf, output_path=clsf_pth)
     eval_set = SpeechCommandsV2C(
         root_path=args.eval_set_path, corruption_level=args.corruption_level, corruption_type=corruption_types, 
         data_tf=data_tfs
