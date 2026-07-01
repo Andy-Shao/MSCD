@@ -4,7 +4,7 @@ export SEED_VAL=12345
 export LOG_FILE=$BASE_PATH'/MSCD.log'
 export ANAL_FILE_L1='AuT_SC2-C_L2-02.csv'
 export ANAL_FILE_L2='AuT_SC2-C_L1-02.csv'
-export DATASET = 'SC2-C'
+export DATASET='SC2-C'
 
 > $LOG_FILE
 printf 'Processing Log\n' >> $LOG_FILE
