@@ -56,13 +56,15 @@ python -m runs.SpeechCommandsV2.HuBERT.adaptation.kd --dataset 'SpeechCommandsV2
     --adpt_wght_pth './result/SpeechCommandsV2/HuBERT/Teach-Cons' \
     --orig_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/train' --seed $SEED_VAL
 
-print 'Student Analysis\n' >> $LOG_FILE
+printf 'Student Analysis\n' >> $LOG_FILE
+printf 'L2\n' >> $LOG_FILE
 python -m runs.SpeechCommandsV2.HuBERT.analysis.std_anal --dataset 'SpeechCommandsV2' \
     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
     --output_file $ANAL_FILE_L2 --batch_size 32 --corruption_level 'L2' --model_level 'base' \
     --orig_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/train' \
     --std_adpt_wght_pth './result/SpeechCommandsV2/HuBERT/KD'
 
+printf 'L1\n' >> $LOG_FILE
 python -m runs.SpeechCommandsV2.HuBERT.analysis.std_anal --dataset 'SpeechCommandsV2' \
     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
     --output_file $ANAL_FILE_L1 --batch_size 32 --corruption_level 'L1' --model_level 'base' \
