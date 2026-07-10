@@ -57,14 +57,14 @@ printf 'Student performance analysis\n' >> $LOG_FILE
 printf 'L2\n' >> $LOG_FILE
 python -m runs.UrbanSound8K.PANNs.analysis.std_anal --dataset 'UrbanSound8K' \
     --eval_set_path $BASE_PATH'/data/UrbanSound8K-C' \
-    --output_file 'PAN_US8-C_L2.csv' --batch_size 32 --corruption_level 'L2' \
+    --output_file $ANAL_FILE_L2 --batch_size 32 --corruption_level 'L2' \
     --orig_wght_pth $BASE_PATH'/result/UrbanSound8K/PANNs/train' \
     --std_adpt_wght_pth './result/UrbanSound8K/PANNs/KD'
 
 printf 'L1\n' >> $LOG_FILE
 python -m runs.UrbanSound8K.PANNs.analysis.std_anal --dataset 'UrbanSound8K' \
     --eval_set_path $BASE_PATH'/data/UrbanSound8K-C' \
-    --output_file 'PAN_US8-C_L1.csv' --batch_size 32 --corruption_level 'L1' \
+    --output_file $ANAL_FILE_L1 --batch_size 32 --corruption_level 'L1' \
     --orig_wght_pth $BASE_PATH'/result/UrbanSound8K/PANNs/train' \
     --std_adpt_wght_pth './result/UrbanSound8K/PANNs/KD'
 
