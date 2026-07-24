@@ -39,7 +39,7 @@ python -m runs.SpeechCommandsV2.HuBERT.analysis.std_anal --dataset 'SpeechComman
     --output_file $ANAL_FILE_L2 --batch_size 32 --corruption_level 'L2' --model_level 'base' \
     --orig_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/train' \
     --std_adpt_wght_pth './result/SpeechCommandsV2/HuBERT/KD' \
-    --output_path './result/SpeeeCommandsV2/HuBERT/ablation_study/No_TC'
+    --output_path './result/SpeechCommandsV2/HuBERT/ablation_study/No_TC'
 
 printf 'L1\n' >> $LOG_FILE
 python -m runs.SpeechCommandsV2.HuBERT.analysis.std_anal --dataset 'SpeechCommandsV2' \
@@ -47,6 +47,6 @@ python -m runs.SpeechCommandsV2.HuBERT.analysis.std_anal --dataset 'SpeechComman
     --output_file $ANAL_FILE_L1 --batch_size 32 --corruption_level 'L1' --model_level 'base' \
     --orig_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/train' \
     --std_adpt_wght_pth './result/SpeechCommandsV2/HuBERT/KD' \
-    --output_path './result/SpeeeCommandsV2/HuBERT/ablation_study/No_TC'
+    --output_path './result/SpeechCommandsV2/HuBERT/ablation_study/No_TC'
 
 printf 'ALL processing is finished\n' >> $LOG_FILE
