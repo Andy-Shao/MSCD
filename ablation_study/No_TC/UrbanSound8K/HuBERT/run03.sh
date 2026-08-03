@@ -49,4 +49,4 @@ python -m runs.UrbanSound8K.HuBERT.analysis.std_anal --dataset 'UrbanSound8K' \
     --std_adpt_wght_pth './result/UrbanSound8K/HuBERT/KD' \
     --output_path './result/UrbanSound8K/HuBERT/ablation_study/No_TC'
 
-printf 'ALL processing is finished\n' >> $LOG_FILEs
+printf 'ALL processing is finished\n' >> $LOG_FILE
