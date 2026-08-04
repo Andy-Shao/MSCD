@@ -20,7 +20,7 @@ if __name__ == '__main__':
     ap.add_argument('--dataset', type=str, default='VocalSound', choices=['VocalSound'])
     ap.add_argument('--eval_set_path', type=str)
     ap.add_argument('--num_workers', type=int, default=16)
-    ap.add_argument('--output_path', type=str, default='./result')
+    ap.add_argument('--output_path', type=str, default='')
     ap.add_argument('--output_file', type=str, default='result.csv')
     ap.add_argument('--batch_size', type=int, default=64)
     ap.add_argument('--orig_wght_pth', type=str)
@@ -39,7 +39,7 @@ if __name__ == '__main__':
         raise Exception('No support!')
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.arch = 'AMAuT'
-    args.output_path = os.path.join(args.output_path, args.dataset, args.arch, constants.ANALYSIS)
+    if args.output_path == '': args.output_path = os.path.join('./result', args.dataset, args.arch, constants.ANALYSIS)
     make_unless_exits(args.output_path)
     torch.backends.cudnn.benchmark = True
 
