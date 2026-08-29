@@ -59,13 +59,15 @@ python -m runs.UrbanSound8K.HuBERT.analysis.std_anal --dataset 'UrbanSound8K' \
     --eval_set_path $BASE_PATH'/data/UrbanSound8K-C' \
     --output_file $ANAL_FILE_L2 --batch_size 32 --corruption_level 'L2' --model_level 'base' \
     --orig_wght_pth $BASE_PATH'/result/UrbanSound8K/HuBERT/train' \
-    --std_adpt_wght_pth './result/UrbanSound8K/HuBERT/KD'
+    --std_adpt_wght_pth './result/UrbanSound8K/HuBERT/KD' \
+    --output_path './result/UrbanSound8K/HuBERT/ablation_study/No_CD'
 
 printf 'L1\n' >> $LOG_FILE
 python -m runs.UrbanSound8K.HuBERT.analysis.std_anal --dataset 'UrbanSound8K' \
     --eval_set_path $BASE_PATH'/data/UrbanSound8K-C' \
     --output_file $ANAL_FILE_L1 --batch_size 32 --corruption_level 'L1' --model_level 'base' \
     --orig_wght_pth $BASE_PATH'/result/UrbanSound8K/HuBERT/train' \
-    --std_adpt_wght_pth './result/UrbanSound8K/HuBERT/KD'
+    --std_adpt_wght_pth './result/UrbanSound8K/HuBERT/KD' \
+    --output_path './result/UrbanSound8K/HuBERT/ablation_study/No_CD'
 
 printf 'ALL processing is finished\n' >> $LOG_FILE
