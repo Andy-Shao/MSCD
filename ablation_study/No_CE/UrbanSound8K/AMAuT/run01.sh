@@ -1,6 +1,6 @@
 #!bin/bash
 export BASE_PATH=${BASE_PATH:-'/root'}
-export SEED_VAL=12345
+export SEED_VAL=2026
 export LOG_FILE=$BASE_PATH'/MSCD.log'
 export ANAL_FILE_L1='AuT_US8-C_L1.csv'
 export ANAL_FILE_L2='AuT_US8-C_L2.csv'
