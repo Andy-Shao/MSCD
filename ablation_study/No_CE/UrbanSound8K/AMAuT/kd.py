@@ -237,13 +237,13 @@ if __name__ == '__main__':
             args=args, aut=std_aut, clsf=std_clsf, corruption_types=corruption_types, data_tfs=data_tfs,
             step=epoch, logger=wandb_run
         )
-        # No CE may crash, so we save weight per epoch
-        # if max_f1 <= f1:
-        #     max_f1 = f1
-        store_weight(
-            args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path,
-            metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
-        )
+
+        if max_f1 <= f1:
+            max_f1 = f1
+            store_weight(
+                args=args, aut=std_aut, clsf=std_clsf, mode=constants.STUDENT_ADAPTATION, root_path=args.output_path,
+                metaInfo=CorruptionMeta(type=None, level=args.corruption_level)
+            )
         if epoch >= args.max_epoch: break
         print('Adaptating...')
         std_aut.train(); std_clsf.train()
