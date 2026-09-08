@@ -1,9 +1,9 @@
 #!bin/bash
 export BASE_PATH=${BASE_PATH:-'/root'}
-export SEED_VAL=12345
+export SEED_VAL=54321
 export LOG_FILE=$BASE_PATH'/MSCD.log'
-export ANAL_FILE_L1='HuB_RS-C_L1-02.csv'
-export ANAL_FILE_L2='HuB_RS-C_L2-02.csv'
+export ANAL_FILE_L1='HuB_RS-C_L1-03.csv'
+export ANAL_FILE_L2='HuB_RS-C_L2-03.csv'
 export DATASET='RS-C'
 
 > $LOG_FILE
