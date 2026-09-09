@@ -58,7 +58,7 @@ python -m runs.VocalSound.AMAuT.analysis.std_anal --dataset 'VocalSound' \
     --output_file $ANAL_FILE_L2 --corruption_level 'L2' --batch_size 32 \
     --orig_wght_pth $BASE_PATH'/result/VocalSound/AMAuT/train' \
     --std_adpt_wght_pth './result/VocalSound/AMAuT/KD' \
-    --output_path './result/VocalSound/PANNs/ablation_study/No_CE'
+    --output_path './result/VocalSound/AMAuT/ablation_study/No_CE'
 
 printf 'L1\n' >> $LOG_FILE
 python -m runs.VocalSound.AMAuT.analysis.std_anal --dataset 'VocalSound' \
@@ -66,6 +66,6 @@ python -m runs.VocalSound.AMAuT.analysis.std_anal --dataset 'VocalSound' \
     --output_file $ANAL_FILE_L1 --corruption_level 'L1' --batch_size 32 \
     --orig_wght_pth $BASE_PATH'/result/VocalSound/AMAuT/train' \
     --std_adpt_wght_pth './result/VocalSound/AMAuT/KD' \
-    --output_path './result/VocalSound/PANNs/ablation_study/No_CE'
+    --output_path './result/VocalSound/AMAuT/ablation_study/No_CE'
 
 printf 'ALL processing is finished\n' >> $LOG_FILE
