@@ -1,4 +1,4 @@
-# MSCD: Multi-Shift Consensus Distillation for Single-Model Test-Time Adaptation
+# Multi-Shift Consensus Distillation for Single-Model Test-Time Adaptation
 ## Software Environment
 + Docker image: nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
 + GPU: RTX 4090 / RTX 5090 / RTX PRO 6000 Blackwell Workstation
