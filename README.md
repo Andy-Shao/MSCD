@@ -24,7 +24,14 @@ pip install wandb==0.21.0
 export BASE_PATH=${the parent directory of the project}
 git clone https://github.com/Andy-Shao/DHAuDS.git
 conda activate MSCD
+cd MSCD
 ```
+### Teacher Adaptation
+MSCD reuses the 'CoNMix-based TTA' from [DHAuDS](https://github.com/Andy-Shao/DHAuDS). MSCD does not present the code for teacher adaptation.
+If you want to process it, please run the DHAuDS project. Here we provide [HuBERT pretrained weights on SC2-C](https://drive.google.com/file/d/1Q-GA1CtpdEu-8S_pFP0cqMKzHI9OpvpY/view). 
+
+### Teacher Consensus
+### Knowledge Distillation
 
 ## Dataset
 ### SpeechCommands V2-C
