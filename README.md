@@ -28,9 +28,24 @@ cd MSCD
 ```
 ### Teacher Adaptation
 MSCD reuses the 'CoNMix-based TTA' from [DHAuDS](https://github.com/Andy-Shao/DHAuDS). MSCD does not present the code for teacher adaptation.
-If you want to process it, please run the DHAuDS project. Here we provide [HuBERT pretrained weights on SC2-C](https://drive.google.com/file/d/1Q-GA1CtpdEu-8S_pFP0cqMKzHI9OpvpY/view). 
+If you want to process it, please run the DHAuDS project. Here we provide [HuBERT pretrained weights (tar.gz file) on SC2-C](https://drive.google.com/file/d/1Q-GA1CtpdEu-8S_pFP0cqMKzHI9OpvpY/view). In the default config, pretrained weights should be unzipped under 'the parent directory of the MSCD project'.
 
 ### Teacher Consensus
+Here we present an example of processing teacher consensus for the HuBERT model on the SC2-C L2 level. You may need to modify a few arguments, such as 'adpt_set_path', 'eval_set_path', and 'adpt_wght_pth'. Specifically, 'adpt_set_path' is the location of the adaptation set of SC2-C. 'eval_set_path' denotes the location of the evaluation set of SC2-C. 'adpt_wght_pth' is the location of the teacher adaptation-trained weights.
+```shell
+python -m runs.SpeechCommandsV2.HuBERT.adaptation.teach_cons --dataset 'SpeechCommandsV2' \
+     --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
+     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
+     --batch_size 32 --corruption_level 'L2' --max_epoch 30 --num_of_shft 4  \
+     --fail_coll_lim 6 --forbid_ls 'TST' \
+     --elect_weights '{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":1.0, "PSH":1.0, "TST":1.3}' \
+     --lrs '{"WHN":7e-5, "ENQ":7e-5, "END1":7e-5, "END2":7e-5, "ENSC":1e-4, "PSH":1e-4, "TST":7e-5}' \
+     --lr_gammas '{"WHN":10, "ENQ":10, "END1":10, "END2":10, "ENSC":30, "PSH":30, "TST":10}' \
+     --hub_lr_decaies '{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":0.55, "PSH":0.55, "TST":1.0}' \
+     --adpt_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/TTDA' --wandb
+```
+See more details in [adaptation.sh](https://github.com/Andy-Shao/MSCD/blob/main/runs/SpeechCommandsV2/HuBERT/adaptation/adaptation.sh).
+
 ### Knowledge Distillation
 
 ## Dataset
