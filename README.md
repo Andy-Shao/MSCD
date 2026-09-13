@@ -19,6 +19,68 @@ pip install soundfile==0.13.1
 pip install wandb==0.21.0
 ```
 
+## Dataset
+### SpeechCommands V2-C
+SpeechCommandsV2-C (SC2-C) serves as a benchmark for DHAuDS in the context of test-time adaptation for audio classification. 
+SC2-C, a subset of [SpeechCommands V2](https://research.google/blog/launching-the-speech-commands-dataset), utilizes only test-set samples to address domain shift. 
+Each sample in SC2-C has a duration of 1 second, a sample rate of 16 kHz, and belongs to one of 35 classes. The dataset comprises two sets: adaptation and 
+evaluation sets. Each set comprises seven corruption categories and two levels. Seven corruption categories are defined: WHN, ENQ, END1, END2, ENSC, TST, and PSH. 
+Two levels are defined: L1 and L2, where L2 indicates a higher degree of complexity. As for the evaluation and adaptation sets, each comprises 154,070 samples. 
+In total, SC2-C consists of 308,140 samples, with each category-level, such as WHN-L1 or WHN-L2, containing 11,005 samples.
++ Sample size: 308,140 (11,005 per category-level)
++ Sample rate: 16 kHz
++ Class number: 35
++ One sample length: 1s
+
+[SC2-C Dataset Link](https://drive.google.com/drive/folders/1wBCadjjcA-n7fCAvf82uYBR6q5z_uXRm)<br/>
+[Hugging Face Backup](https://huggingface.co/datasets/AndyShao90/SpeechCommandsV2-C)
+
+### VocalSound-C
+VocalSound-C (VS-C) serves as a benchmark for DHAuDS in the context of test-time adaptation for audio classification. 
+VS-C, a subset of [VocalSound](https://sls.csail.mit.edu/downloads/vocalsound), utilizes only 
+test-set samples to address domain shift. Each sample in VS-C has a duration of 10 seconds, a sample rate of 16 kHz, and belongs to one of 6 classes. 
+The dataset comprises two sets: adaptation and evaluation sets. Each set comprises seven corruption categories and two levels. Seven corruption categories 
+are defined: WHN, ENQ, END1, END2, ENSC, TST, and PSH. Two levels are defined: L1 and L2, where L2 indicates a higher degree of complexity. As for evaluation 
+and adaptation sets, each comprises 50,274 samples. In total, VS-C consists of 100,548 samples, with each category-level, such as WHN-L1 or WHN-L2, containing 
+3,591 samples.
++ Sample size: 100,548 (3,591 per category-level)
++ Sample rate: 16 kHz
++ One sample length: 10s
++ Class number: 6
+
+[VS-C Dataset Link](https://drive.google.com/drive/folders/1QysFmdmFUQgQ0BlADU4eJ_xuHUxziSJX)<br/>
+[Hugging Face Backup](https://huggingface.co/datasets/AndyShao90/VocalSound-C)
+
+### UrbanSound8K-C
+UrbanSound8K-C (US8-C) serves as a benchmark for DHAuDS in the context of 
+test-time adaptation for audio classification. US8-C, a subset of [UrbanSound8K](https://urbansounddataset.weebly.com/urbansound8k.html), 
+utilizes only test-set samples to address domain shift. Each sample in US8-C has a duration of 4 seconds, a sample rate of 44.1 kHz, 
+and belongs to one of 10 classes. The dataset comprises two sets: adaptation and evaluation sets. Each set comprises four corruption categories and two levels. 
+Four corruption categories are defined: WHN, ENSC, TST, and PSH. Two levels are defined: L1 and L2, where L2 indicates a higher degree of complexity. 
+As for evaluation and adaptation sets, each comprises 9,836 samples. In total, US8-C consists of 19,672 samples, with each category-level, such as WHN-L1 or 
+WHN-L2, containing 2,459 samples.
++ Sample size: 19,672 (2,459 per category-level)
++ Sample rate: 44.1 kHz
++ One sample length: 4s
++ Class Number: 10
+
+[US8K-C Dataset Link](https://drive.google.com/drive/folders/1kUzBwwrRO5sIq8GUhGf8FP4HbCnb7KTh)<br/>
+[Hugging face backup](https://huggingface.co/datasets/AndyShao90/UrbanSound8K-C)
+
+### ReefSet-C
+ReefSet-C (RS-C) serves as a benchmark for DHAuDS in the context of test-time adaptation for audio classification. 
+RS-C, a subset of [ReefSet](https://zenodo.org/records/11071202), utilizes only test-set samples to address domain shift. Each sample in RS-C has a duration 
+of 1.88 seconds, a sample rate of 16 kHz, and belongs to one of 37 classes. The dataset comprises two sets: adaptation and evaluation sets. Each set comprises 
+seven corruption categories and two levels. Seven corruption categories are defined: WHN, ENQ, END1, END2, ENSC, TST, and PSH. Two levels are defined: L1 and 
+L2, where L2 indicates a higher degree of complexity. As for evaluation and adaptation sets, each comprises 239,918 samples. In total, RS-C consists of 
+479,836 samples, with each category-level, such as WHN-L1 or WHN-L2, containing 17,137 samples.
++ Sample size: 479,836 (17,137 per category-level)
++ Sample rate: 16 kHz
++ One sample length: 1.88s
+
+[RS-C Dataset Link](https://drive.google.com/drive/folders/1W9GGOZTq3XSSsOlpJOQueDksHkCn3Fj4)<br/>
+[Hugging Face Backup](https://huggingface.co/datasets/AndyShao90/ReefSet-C)
+
 ## Code Reference
 + [DHAuDS](https://github.com/Andy-Shao/DHAuDS)
 + [PANNs](https://github.com/qiuqiangkong/audioset_tagging_cnn)
