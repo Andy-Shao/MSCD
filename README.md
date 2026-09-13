@@ -24,7 +24,6 @@ pip install wandb==0.21.0
 export BASE_PATH=${the parent directory of the project}
 git clone https://github.com/Andy-Shao/DHAuDS.git
 conda activate MSCD
-cd MSCD
 ```
 
 ## Dataset
