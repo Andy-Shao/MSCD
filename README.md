@@ -31,10 +31,7 @@ MSCD reuses the 'CoNMix-based TTA' from [DHAuDS](https://github.com/Andy-Shao/DH
 If you want to process it, please run the DHAuDS project. Here we provide [HuBERT pretrained weights (tar.gz file) on SC2-C](https://drive.google.com/file/d/1Q-GA1CtpdEu-8S_pFP0cqMKzHI9OpvpY/view) (This source link includes unadapted weight files). In the default config, pretrained weights should be unzipped under 'the parent directory of the MSCD project'.
 
 ### Teacher Consensus
-Here we present an example of processing teacher consensus for the HuBERT model on the SC2-C L2 level. You may need to modify a few arguments, such as 'adpt_set_path', 'eval_set_path', and 'adpt_wght_pth'. Specifically, 
-+ 'adpt_set_path' is the location of the adaptation set of SC2-C. 
-+ 'eval_set_path' denotes the location of the evaluation set of SC2-C.
-+ 'adpt_wght_pth' is the location of the teacher adaptation-trained weights.
+Here we present an example of processing teacher consensus for the HuBERT model on the SC2-C L2 level. 
 ```shell
 python -m runs.SpeechCommandsV2.HuBERT.adaptation.teach_cons --dataset 'SpeechCommandsV2' \
      --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
@@ -47,15 +44,14 @@ python -m runs.SpeechCommandsV2.HuBERT.adaptation.teach_cons --dataset 'SpeechCo
      --hub_lr_decaies '{"WHN":1.0, "ENQ":1.0, "END1":1.0, "END2":1.0, "ENSC":0.55, "PSH":0.55, "TST":1.0}' \
      --adpt_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/TTDA' --wandb
 ```
-See more details in [adaptation.sh](https://github.com/Andy-Shao/MSCD/blob/main/runs/SpeechCommandsV2/HuBERT/adaptation/adaptation.sh).
-
-### Knowledge Distillation
-Here is an example of processing knowledge distillation for the HuBERT model at the SC2-C L2 level. You may need to modify a few arguments, such as 'adpt_set_path', 
-'eval_set_path', 'adpt_wght_pth', and 'orig_wght_pth'. 
+You may need to modify a few arguments, such as 'adpt_set_path', 'eval_set_path', and 'adpt_wght_pth'. Specifically, 
 + 'adpt_set_path' is the location of the adaptation set of SC2-C. 
 + 'eval_set_path' denotes the location of the evaluation set of SC2-C.
 + 'adpt_wght_pth' is the location of the teacher adaptation-trained weights.
-+ 'orig_wght_pth' is the location of the unadapted weights before processing teacher adaptation. [DHAuDS](https://github.com/Andy-Shao/DHAuDS) includes the training script. For HuBERT on SC2-C, we provide pretrained weights (see the weight file link in the Teacher Adaptation section of this README.md file).
+See more details in [adaptation.sh](https://github.com/Andy-Shao/MSCD/blob/main/runs/SpeechCommandsV2/HuBERT/adaptation/adaptation.sh).
+
+### Knowledge Distillation
+Here is an example of processing knowledge distillation for the HuBERT model at the SC2-C L2 level. 
 ```shell
 python -m runs.SpeechCommandsV2.HuBERT.adaptation.kd --dataset 'SpeechCommandsV2' \
      --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
@@ -66,13 +62,16 @@ python -m runs.SpeechCommandsV2.HuBERT.adaptation.kd --dataset 'SpeechCommandsV2
      --adpt_wght_pth './result/SpeechCommandsV2/HuBERT/Teach-Cons' \
      --orig_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/train' --wandb
 ```
+You may need to modify a few arguments, such as 'adpt_set_path', 
+'eval_set_path', 'adpt_wght_pth', and 'orig_wght_pth'. 
++ 'adpt_set_path' is the location of the adaptation set of SC2-C. 
++ 'eval_set_path' denotes the location of the evaluation set of SC2-C.
++ 'adpt_wght_pth' is the location of the teacher adaptation-trained weights.
++ 'orig_wght_pth' is the location of the unadapted weights before processing teacher adaptation. [DHAuDS](https://github.com/Andy-Shao/DHAuDS) includes the training script. For HuBERT on SC2-C, we provide pretrained weights (see the weight file link in the Teacher Adaptation section of this README.md file).
 See more details in [adaptation.sh](https://github.com/Andy-Shao/MSCD/blob/main/runs/SpeechCommandsV2/HuBERT/adaptation/adaptation.sh).
 
 ### Analysis
-Here is an example of analyzing HuBERT performance on SC2-C at the L2 level. You may need to modify a few arguments, such as 'val_set_path', 'orig_wght_pth', and 'std_adpt_wght_pth'. 
-+ 'eval_set_path' denotes the location of the evaluation set of SC2-C.
-+ 'orig_wght_pth' is the unadapted weight before processing teacher adaptation. [DHAuDS](https://github.com/Andy-Shao/DHAuDS) includes the training script. For HuBERT on SC2-C, we provide pretrained weights (see the weight file link in the Teacher Adaptation section).
-+ 'std_adpt_wght_pth' is the location of adapted weights after knowledge distillation. For HuBERT on SC2-C, we provide a [pretrained weight (tar.gz file)](https://drive.google.com/file/d/12CYaxX9CDkjsYyKWoIJke07f70OJs4Su/view?usp=drive_link).
+Here is an example of analyzing HuBERT performance on SC2-C at the L2 level. 
 ```shell
 python -m runs.SpeechCommandsV2.HuBERT.analysis.std_anal --dataset 'SpeechCommandsV2' \
     --eval_set_path $BASE_PATH'/data/SpeechCommandsV2-C' \
@@ -80,6 +79,10 @@ python -m runs.SpeechCommandsV2.HuBERT.analysis.std_anal --dataset 'SpeechComman
     --orig_wght_pth $BASE_PATH'/result/SpeechCommandsV2/HuBERT/train' \
     --std_adpt_wght_pth './result/SpeechCommandsV2/HuBERT/KD'
 ```
+You may need to modify a few arguments, such as 'val_set_path', 'orig_wght_pth', and 'std_adpt_wght_pth'. 
++ 'eval_set_path' denotes the location of the evaluation set of SC2-C.
++ 'orig_wght_pth' is the unadapted weight before processing teacher adaptation. [DHAuDS](https://github.com/Andy-Shao/DHAuDS) includes the training script. For HuBERT on SC2-C, we provide pretrained weights (see the weight file link in the Teacher Adaptation section).
++ 'std_adpt_wght_pth' is the location of adapted weights after knowledge distillation. For HuBERT on SC2-C, we provide a [pretrained weight (tar.gz file)](https://drive.google.com/file/d/12CYaxX9CDkjsYyKWoIJke07f70OJs4Su/view?usp=drive_link).
 See more details in [analysis.sh](https://github.com/Andy-Shao/MSCD/blob/main/runs/SpeechCommandsV2/HuBERT/analysis/analysis.sh).
 
 ## Dataset
