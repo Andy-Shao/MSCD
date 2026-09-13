@@ -19,6 +19,14 @@ pip install soundfile==0.13.1
 pip install wandb==0.21.0
 ```
 
+## Processing
+```shell
+export BASE_PATH=${the parent directory of the project}
+git clone https://github.com/Andy-Shao/DHAuDS.git
+conda activate MSCD
+cd MSCD
+```
+
 ## Dataset
 ### SpeechCommands V2-C
 SpeechCommandsV2-C (SC2-C) serves as a benchmark for DHAuDS in the context of test-time adaptation for audio classification. 
