@@ -55,7 +55,7 @@ Here is an example of processing knowledge distillation for the HuBERT model at 
 + 'adpt_set_path' is the location of the adaptation set of SC2-C. 
 + 'eval_set_path' denotes the location of the evaluation set of SC2-C.
 + 'adpt_wght_pth' is the location of the teacher adaptation-trained weights.
-+ 'orig_wght_pth' is the location of the unadapted weights before processing teacher adaptation. [DHAuDS](https://github.com/Andy-Shao/DHAuDS) includes the training script. For HuBERT on SC2-C, we provide pretrained weights (see the weight file link in the Teacher Adaptation section).
++ 'orig_wght_pth' is the location of the unadapted weights before processing teacher adaptation. [DHAuDS](https://github.com/Andy-Shao/DHAuDS) includes the training script. For HuBERT on SC2-C, we provide pretrained weights (see the weight file link in the [Teacher Adaptation section](https://github.com/Andy-Shao/MSCD/blob/main/README.md### Teacher Consensus)).
 ```shell
 python -m runs.SpeechCommandsV2.HuBERT.adaptation.kd --dataset 'SpeechCommandsV2' \
      --adpt_set_path $BASE_PATH'/data/Ada-SpeechCommandsV2-C' \
