@@ -2,6 +2,7 @@
 
 # MSCD
 ### Multi-Shift Consensus Distillation for Single-Model Inference
+![GitHub License](https://img.shields.io/github/license/Andy-Shao/MSCD)
 
 </div>
 ## Software Environment
