@@ -3,6 +3,7 @@
 # MSCD
 ### Multi-Shift Consensus Distillation for Single-Model Inference
 ![GitHub License](https://img.shields.io/github/license/Andy-Shao/MSCD)
+![Python](https://img.shields.io/badge/Python-3.13-blue)
 
 </div>
 
