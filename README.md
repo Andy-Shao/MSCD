@@ -35,7 +35,7 @@ cd MSCD
 ```
 ### Teacher Adaptation
 MSCD reuses the 'CoNMix-based TTA' from [DHAuDS](https://github.com/Andy-Shao/DHAuDS). MSCD does not present the code for teacher adaptation.
-If you want to process it, please run the DHAuDS project. Here we provide [HuBERT pretrained weights (tar.gz file) on SC2-C](https://drive.google.com/file/d/1Q-GA1CtpdEu-8S_pFP0cqMKzHI9OpvpY/view) (This source link includes unadapted weight files). In the default config, pretrained weights should be unzipped under 'the parent directory of the MSCD project'.
+If you want to process it, please run the DHAuDS project. Here we provide HuBERT pretrained weights [![Download](https://img.shields.io/badge/Download-tar.gz%20file-ffcc4d)](https://drive.google.com/file/d/1Q-GA1CtpdEu-8S_pFP0cqMKzHI9OpvpY) on SC2-C (This source link includes unadapted weight files). In the default config, pretrained weights should be unzipped under 'the parent directory of the MSCD project'.
 
 ### Teacher Consensus
 Here we present an example of processing teacher consensus for the HuBERT model on the SC2-C L2 level. 
