@@ -91,7 +91,7 @@ python -m runs.SpeechCommandsV2.HuBERT.analysis.std_anal --dataset 'SpeechComman
 You may need to modify a few arguments, such as 'val_set_path', 'orig_wght_pth', and 'std_adpt_wght_pth'. 
 + 'eval_set_path' denotes the location of the evaluation set of SC2-C.
 + 'orig_wght_pth' is the unadapted weight before processing teacher adaptation. [DHAuDS](https://github.com/Andy-Shao/DHAuDS) includes the training script. For HuBERT on SC2-C, we provide pretrained weights (see the weight file link in the Teacher Adaptation section).
-+ 'std_adpt_wght_pth' is the location of adapted weights after knowledge distillation. For HuBERT on SC2-C, we provide a [pretrained weight (tar.gz file)](https://drive.google.com/file/d/12CYaxX9CDkjsYyKWoIJke07f70OJs4Su/view?usp=drive_link).
++ 'std_adpt_wght_pth' is the location of adapted weights after knowledge distillation. For HuBERT on SC2-C, we provide a pretrained weight [![Download](https://img.shields.io/badge/Download-tar.gz%20file-ffcc4d)](https://drive.google.com/file/d/12CYaxX9CDkjsYyKWoIJke07f70OJs4Su/view?usp=drive_link).
 
 See more details in [analysis.sh](https://github.com/Andy-Shao/MSCD/blob/main/runs/SpeechCommandsV2/HuBERT/analysis/analysis.sh).
 
