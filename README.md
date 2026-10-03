@@ -9,19 +9,38 @@
 
 ## Repository Layout
 ```text
-AuT
-HuBERT
-PANNs
+AuT                              # AMAuT model configurations and settings
+HuBERT                           # HuBERT model configurations and settings
+PANNs                            # PANNs model configurations and settings
 ablation_study
 |---- No_BN
-|     |---- ReefSet
+|     |---- ReefSet              # Ablation study for excluding BatchNorm calibration on ReefSet
+|     |---- SpeechCommandsV2     # Ablation study for excluding BatchNorm calibration on SpeechCommands V2
+|     |---- UrbanSound8K         # Ablation study for excluding BatchNorm calibration on UrbanSound8K
+|     |---- VocalSound           # Ablation study for excluding BatchNorm calibration on VocalSound
 |---- No_CD
+|     |---- ReefSet              # Ablation study for excluding contrastive distillation on ReefSet
+|     |---- SpeechCommandsV2     # Ablation study for excluding contrastive distillation on SpeechCommands V2
+|     |---- UrbanSound8K         # Ablation study for excluding contrastive distillation on UrbanSound8K
+|     |---- VocalSound           # Ablation study for excluding contrastive distillation on VocalSound
 |---- No_CE
+|     |---- ReefSet              # Ablation study for excluding reweight cross-entropy on ReefSet
+|     |---- SpeechCommandsV2     # Ablation study for excluding reweight cross-entropy on SpeechCommands V2
+|     |---- UrbanSound8K         # Ablation study for excluding reweight cross-entropy on UrbanSound8K
+|     |---- VocalSound           # Ablation study for excluding reweight cross-entropy on VocalSound
 |---- No_TC
-data
-lib
-result
+|     |---- ReefSet              # Ablation study for excluding teacher consensus on ReefSet
+|     |---- SpeechCommandsV2     # Ablation study for excluding teacher consensus on SpeechCommands V2
+|     |---- UrbanSound8K         # Ablation study for excluding teacher consensus on UrbanSound8K
+|     |---- VocalSound           # Ablation study for excluding teacher consensus on VocalSound
+data                             # Dataset config for ReefSet
+lib                              # General toolkits
+result                           # Experiments results
 runs
+|---- ReefSet                    # Experiment on ReefSet
+|---- SpeechCommandsV2           # Experiment on SpeechCommands V2
+|---- UrbanSound8K               # Experiment on UrbanSound8K
+|---- VocalSound                 # Experiment on VocalSound
 ```
 
 ## Installation
