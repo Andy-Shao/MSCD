@@ -7,7 +7,24 @@
 
 </div>
 
-## Software Environment
+## Repository Layout
+```text
+AuT
+HuBERT
+PANNs
+ablation_study
+|---- No_BN
+|     |---- ReefSet
+|---- No_CD
+|---- No_CE
+|---- No_TC
+data
+lib
+result
+runs
+```
+
+## Installation
 + Docker image: nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
 + GPU: RTX 4090 / RTX 5090 / RTX PRO 6000 Blackwell Workstation
 ```shell
