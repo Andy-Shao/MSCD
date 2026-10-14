@@ -66,7 +66,7 @@ pip install wandb==0.21.0
 ## Processing
 ```shell
 export BASE_PATH=${the parent directory of the project}
-git clone https://github.com/Andy-Shao/MSCD
+git clone https://github.com/Andy-Shao/MSCD.git
 conda activate MSCD
 cd MSCD
 ```
