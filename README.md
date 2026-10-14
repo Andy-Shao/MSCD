@@ -193,3 +193,4 @@ L2, where L2 indicates a higher degree of complexity. As for evaluation and adap
 ## Code Reference
 [![Code Reference](https://img.shields.io/badge/Github-HuBERT-blue)](https://github.com/facebookresearch/fairseq/tree/main/examples/hubert)
 [![Code Reference](https://img.shields.io/badge/Github-PANNs-blue)](https://github.com/qiuqiangkong/audioset_tagging_cnn)
+[![Code Reference](https://img.shields.io/badge/Github-DHAuDS-blue)](https://github.com/Andy-Shao/DHAuDS)
