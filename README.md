@@ -9,9 +9,9 @@
 
 ## Repository Layout
 ```text
-AuT                              # AMAuT model configurations and settings
-HuBERT                           # HuBERT model configurations and settings
-PANNs                            # PANNs model configurations and settings
+AuT                              # AMAuT model settings
+HuBERT                           # HuBERT model settings
+PANNs                            # PANNs model settings
 ablation_study
 |---- No_BN
 |     |---- ReefSet              # Ablation study for excluding BatchNorm calibration on ReefSet
